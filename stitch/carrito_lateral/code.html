@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ENERMAN - Carrito</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-bright": "#f9f9fb",
+              "surface-tint": "#765b00",
+              "secondary-fixed": "#e4e2e4",
+              "on-primary-fixed": "#241a00",
+              "surface": "#f9f9fb",
+              "secondary": "#5f5e60",
+              "on-background": "#1a1c1d",
+              "surface-dim": "#d9dadc",
+              "on-surface": "#1a1c1d",
+              "on-secondary-container": "#636264",
+              "on-primary-container": "#5b4500",
+              "primary-fixed-dim": "#f1c030",
+              "primary": "#765b00",
+              "on-tertiary-container": "#004c7a",
+              "tertiary-container": "#77bdff",
+              "on-primary-fixed-variant": "#594400",
+              "on-error": "#ffffff",
+              "inverse-surface": "#2f3132",
+              "on-secondary": "#ffffff",
+              "tertiary-fixed": "#cfe5ff",
+              "inverse-primary": "#f1c030",
+              "on-secondary-fixed": "#1b1b1d",
+              "inverse-on-surface": "#f0f0f2",
+              "on-tertiary": "#ffffff",
+              "surface-container-high": "#e8e8ea",
+              "primary-fixed": "#ffdf93",
+              "tertiary-fixed-dim": "#99cbff",
+              "on-tertiary-fixed": "#001d33",
+              "tertiary": "#00629d",
+              "surface-container-low": "#f3f3f5",
+              "surface-variant": "#e2e2e4",
+              "primary-container": "#e0b11e",
+              "on-surface-variant": "#4e4634",
+              "error-container": "#ffdad6",
+              "on-tertiary-fixed-variant": "#004a78",
+              "outline-variant": "#d2c5ad",
+              "secondary-fixed-dim": "#c8c6c8",
+              "surface-container-highest": "#e2e2e4",
+              "surface-container-lowest": "#ffffff",
+              "outline": "#807661",
+              "on-primary": "#ffffff",
+              "surface-container": "#eeeef0",
+              "on-error-container": "#93000a",
+              "background": "#f9f9fb",
+              "error": "#ba1a1a",
+              "secondary-container": "#e2dfe1",
+              "on-secondary-fixed-variant": "#474649"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface overflow-hidden">
+<!-- Main Content Underlay (Background blurred for focus) -->
+<main class="min-h-screen flex flex-col blur-sm opacity-50">
+<!-- TopAppBar Placeholder -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-20 bg-[#1D1D1F]">
+<div class="text-xl font-black text-[#E0B11E] tracking-tighter uppercase">ENERMAN</div>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-white/70">search</span>
+<span class="material-symbols-outlined text-[#E0B11E]">shopping_cart</span>
+</div>
+</header>
+<!-- Product Hero Underlay -->
+<section class="mt-32 px-12 grid grid-cols-1 md:grid-cols-2 gap-12">
+<div class="aspect-square bg-surface-container-highest rounded-lg overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close up of a heavy duty industrial electrical circuit breaker with metallic components and warning labels in sharp focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7eID5sXOIZdJzZLdCnlKF5bo-C7oeqxc4T0pubGfyqLxzsYFcLvk7s6PfR0cVDsCwfWo0y7mqTvAzIL__lkYmy0vXcLWNPJa0IlNyNv9f3-P-8sveYb0QtZc4961J57yx5rKUQnq6SGuCeXNFC0Guu9EP3mK9y2dc6jdZHomTe_gByah0lT4zJNjMmCN-lbnLVaKcMaLOW4Ku7yiiWzWKYxhzKf5pg1nZWeAiwdP4tDXvoho5akVybMyujsDdEsQh-_tpRiaRkoA"/>
+</div>
+<div class="space-y-6">
+<div class="h-12 w-48 bg-surface-container-high rounded-full"></div>
+<div class="h-24 w-full bg-surface-container-high rounded-xl"></div>
+<div class="h-6 w-32 bg-surface-container-high rounded-full"></div>
+<div class="h-16 w-64 bg-primary-container rounded-full"></div>
+</div>
+</section>
+</main>
+<!-- Overlay Backdrop -->
+<div class="fixed inset-0 bg-on-surface/20 backdrop-blur-sm z-[70]"></div>
+<!-- Slide-in Cart Panel -->
+<aside class="fixed top-0 right-0 h-full w-full max-w-md bg-surface-container-lowest z-[80] shadow-2xl flex flex-col transform transition-transform duration-500 ease-out">
+<!-- Header -->
+<header class="flex items-center justify-between px-8 py-8">
+<h2 class="text-2xl font-bold text-on-surface tracking-tight">Tu Carrito</h2>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-on-surface text-2xl">close</span>
+</button>
+</header>
+<!-- Cart Items List -->
+<div class="flex-1 overflow-y-auto px-8 space-y-10 py-4">
+<!-- Item 1 -->
+<article class="flex gap-6 group">
+<div class="w-24 h-24 bg-surface-container-low rounded-xl overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Industrial circuit protection device on a clean white background with subtle studio lighting and sharp details" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTs1YSMDH1ZaPn3Njv-n5tbps2aCRgJAV_-y5S-HpJdWoJOOYJ829EKN9w3qaxDLwUB3T6_H162niJ4cVi_DjMPOOpe7qNEtwPzn-pyIlL-wm6_k72iX52yAZxZ7OpfAE88rlfY91rQh4ocBOF7wlFCrAizcoWCdsZ_I6K6NVnCm1KFcTLsGYPlGKszSetZbZtX2Q7Y-DTUkvghaKZ8iUNn21XLoJzpG-nJWD9e_PcJn1syUBJIE2m6X2TK9JKv0GBfJJ1rm7cTkM"/>
+</div>
+<div class="flex flex-col justify-between flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-bold text-on-surface text-[1rem] leading-tight max-w-[160px]">Interruptor Termomagnético 3P 100A</h3>
+<p class="font-bold text-on-surface">$2,450.00</p>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center bg-surface-container-low rounded-full px-2 py-1 gap-4">
+<button class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-sm">remove</span>
+</button>
+<span class="text-sm font-bold w-4 text-center">1</span>
+<button class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-sm">add</span>
+</button>
+</div>
+<button class="text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-xl">delete</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Item 2 -->
+<article class="flex gap-6 group">
+<div class="w-24 h-24 bg-surface-container-low rounded-xl overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Professional grade industrial LED spotlight with a matte black finish and textured glass lens for high intensity lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuClVf9uTHtJ4taMRkV8Iubbj7skmCfvGCeLhXgijcAkssZou0COMaaHFAMsrJMi2kOxMN6JaIjkVNO_SlajQJ5D_UepRP6yusQ-IKxZ5bAHX_V7aLibd3umJv-lm5OhRxNIGOD9BFh9odk9i59kMVS08ajYmWvXu-LtYHAMnPJRoAkRGfQilkjmubIUjRS8aMkEx-zFnyO0HVYo1tZk7hSxqT1KQXJSyDcyIEXkStX5Kv-ip-cYBAfe0Pm1gukZG_pT59O5hD5qB1E"/>
+</div>
+<div class="flex flex-col justify-between flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-bold text-on-surface text-[1rem] leading-tight max-w-[160px]">Luminaria Industrial High Bay 200W</h3>
+<p class="font-bold text-on-surface">$4,890.00</p>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center bg-surface-container-low rounded-full px-2 py-1 gap-4">
+<button class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-sm">remove</span>
+</button>
+<span class="text-sm font-bold w-4 text-center">2</span>
+<button class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-sm">add</span>
+</button>
+</div>
+<button class="text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-xl">delete</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Item 3 -->
+<article class="flex gap-6 group">
+<div class="w-24 h-24 bg-surface-container-low rounded-xl overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Premium solar panel cell surface showing technical texture and metallic busbars under bright directional sunlight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAz78Vy7729vz7AK8AcKjhq3vQl6VTqaVabKsXmtZXLc4i_HtjvK6OISO9lWGxLfmXg6puvNiwvmmdio6c7WkGQ8AnvAktz7SWLrf1HKHTPsQM0mufO5FAxY-ltze1aa_i8uZyN4mmu74ig-7GEiLus-uTMEUcf1lexpI5caXcypnsuf84SVZBD18RRs0pqd0GpUMC_lgMrKYY43s6XO44RZFn5qyvKqXzo5N1FX7mVoWWA05_ww4A98u4ECLbiN3VMNU8R9pWKAM0"/>
+</div>
+<div class="flex flex-col justify-between flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-bold text-on-surface text-[1rem] leading-tight max-w-[160px]">Panel Solar Monocristalino 450W</h3>
+<p class="font-bold text-on-surface">$3,120.00</p>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center bg-surface-container-low rounded-full px-2 py-1 gap-4">
+<button class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-sm">remove</span>
+</button>
+<span class="text-sm font-bold w-4 text-center">1</span>
+<button class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-sm">add</span>
+</button>
+</div>
+<button class="text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-xl">delete</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+<!-- Footer -->
+<footer class="p-8 space-y-6 bg-surface-container-lowest border-t border-outline-variant/10">
+<div class="space-y-2">
+<div class="flex justify-between text-on-surface-variant text-sm font-medium">
+<span>Subtotal</span>
+<span>$15,350.00</span>
+</div>
+<div class="flex justify-between text-on-surface-variant text-sm font-medium">
+<span>Envío Estimado</span>
+<span class="text-primary font-bold">GRATIS</span>
+</div>
+<div class="flex justify-between items-end pt-4">
+<span class="text-xl font-bold text-on-surface tracking-tight">Total</span>
+<div class="text-right">
+<span class="block text-3xl font-black text-on-surface tracking-tighter leading-none">$15,350.00</span>
+<span class="text-[0.65rem] text-on-surface-variant uppercase tracking-widest font-bold">IVA Incluido</span>
+</div>
+</div>
+</div>
+<button class="w-full bg-primary-container text-on-primary-fixed h-16 rounded-full font-bold text-[0.875rem] uppercase tracking-wider flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform active:scale-95">
+                Ver pedido completo
+                <span class="material-symbols-outlined">chevron_right</span>
+</button>
+<button class="w-full h-12 rounded-full font-bold text-[0.75rem] uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition-colors">
+                Continuar Comprando
+            </button>
+</footer>
+</aside>
+<!-- BottomNavBar (Mobile Shell Anchor) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 flex justify-around items-center px-4 pt-3 pb-8 bg-white/80 backdrop-blur-xl rounded-t-[24px] shadow-[0px_-12px_32px_rgba(26,28,29,0.06)]">
+<div class="flex flex-col items-center text-[#6E6E73] hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">grid_view</span>
+<span class="font-['Inter'] text-[0.75rem] font-bold uppercase tracking-[0.05em]">Shop</span>
+</div>
+<div class="flex flex-col items-center text-[#6E6E73] hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">search</span>
+<span class="font-['Inter'] text-[0.75rem] font-bold uppercase tracking-[0.05em]">Search</span>
+</div>
+<div class="flex flex-col items-center text-[#6E6E73] hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-['Inter'] text-[0.75rem] font-bold uppercase tracking-[0.05em]">Orders</span>
+</div>
+<div class="flex flex-col items-center text-[#E0B11E] hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[0.75rem] font-bold uppercase tracking-[0.05em]">Profile</span>
+</div>
+</nav>
+</body></html>
