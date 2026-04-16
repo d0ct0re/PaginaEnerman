@@ -11,6 +11,7 @@ import RegisterPage from "./pages/RegisterPage";
 import AdminGatePage from "./pages/AdminGatePage";
 import AdminAuthPage from "./pages/AdminAuthPage";
 import { SeccionBeneficios, SeccionUbicacion } from "./components/sections/LandingSections";
+import { activityTracker } from "./lib/activityTracker";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -1634,6 +1635,13 @@ function CatalogoPage({ carrito, setCarrito }) {
   // Resetear página al cambiar filtros
   useEffect(() => { setPagina(1); }, [busqueda, categoriaActiva, marcaActiva, subcatActiva]);
 
+  // Trackear búsqueda (debounced — solo cuando el usuario deja de escribir)
+  useEffect(() => {
+    if (!busqueda.trim() || !user) return;
+    const t = setTimeout(() => activityTracker.search(user.uid, busqueda.trim()), 1200);
+    return () => clearTimeout(t);
+  }, [busqueda, user]);
+
   // cambiarCategoria: limpia filtros derivados al cambiar de categoría manualmente
   const cambiarCategoria = useCallback((cat) => {
     setCategoriaActiva(cat);
@@ -1657,6 +1665,7 @@ function CatalogoPage({ carrito, setCarrito }) {
       varianteSku,
       variante,
     }]);
+    activityTracker.addToCart(user.uid, producto, cantidad);
     setProductoDetalle(null);
     setCarritoVisible(true);
   }, [setCarrito, user, navigate]);
@@ -1939,7 +1948,10 @@ function CatalogoPage({ carrito, setCarrito }) {
                     key={producto.id}
                     producto={producto}
                     onAgregar={agregarAlCarrito}
-                    onVerDetalle={setProductoDetalle}
+                    onVerDetalle={(p) => {
+                      setProductoDetalle(p);
+                      if (user) activityTracker.viewProduct(user.uid, p.id, p.title || p.nombre);
+                    }}
                   />
                 ))}
               </div>
@@ -2295,6 +2307,7 @@ function PedidoPage({ carrito, setCarrito }) {
       const waUrl = `https://wa.me/${WHATSAPP_VENTAS}?text=${encodeURIComponent(mensaje)}`;
       const nombre = `ENERMAN_Pedido_${Date.now()}.pdf`;
       await guardarPedidoFirestore();
+      activityTracker.whatsappRequest(user?.uid, carrito, carrito.reduce((s, i) => s + (i.precioFinal || 0) * i.cantidad, 0));
 
       // En móvil: Web Share API → comparte PDF directo a WhatsApp
       if (navigator.canShare) {
