@@ -3,165 +3,139 @@ import { auth, db } from "../lib/firebase";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  signOut,
-  signInWithPhoneNumber,
-  RecaptchaVerifier,
   createUserWithEmailAndPassword,
-  updatePassword,
+  sendEmailVerification,
+  signOut,
   sendPasswordResetEmail,
-  PhoneAuthProvider,
-  signInWithCredential,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { activityTracker } from "../lib/activityTracker";
 
-// ─── Emails con acceso de administrador ──────────────────────────────────────
-// Agrega aquí cada email admin. La cuenta se crea en Firebase Console.
-export const ADMIN_EMAILS = [
-  "d0ct0renomah@gmail.com",  // admin principal
-];
+// ─── Emails con acceso de administrador (respaldo si Firestore falla) ─────────
+export const ADMIN_EMAILS = ["d0ct0renomah@gmail.com"];
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
-  const [perfil, setPerfil]   = useState(null); // datos del cliente en Firestore
-  const [loading, setLoading] = useState(true);
+  const [user, setPerfil_user]  = useState(null);
+  const [perfil, setPerfil]     = useState(null);
+  const [rol, setRol]           = useState(null); // "admin" | "cliente" | null
+  const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u && !ADMIN_EMAILS.includes(u.email)) {
-        // Cargar perfil del cliente desde Firestore
+      setPerfil_user(u);
+      if (u) {
         try {
           const snap = await getDoc(doc(db, "usuarios", u.uid));
-          setPerfil(snap.exists() ? snap.data() : null);
+          if (snap.exists()) {
+            const data = snap.data();
+            setPerfil(data);
+            setRol(data.rol || (ADMIN_EMAILS.includes(u.email) ? "admin" : "cliente"));
+          } else {
+            setPerfil(null);
+            setRol(ADMIN_EMAILS.includes(u.email) ? "admin" : "cliente");
+          }
         } catch {
           setPerfil(null);
+          setRol(ADMIN_EMAILS.includes(u.email) ? "admin" : "cliente");
         }
       } else {
         setPerfil(null);
+        setRol(null);
       }
       setLoading(false);
     });
     return unsub;
   }, []);
 
-  // ── Login admin (email + contraseña) ────────────────────────────────────────
+  // ── Registro de cliente con verificación de email ──────────────────────────
+  const registro = async ({ nombre, apellidos, email, telefono, password }) => {
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    await sendEmailVerification(cred.user);
+    await setDoc(doc(db, "usuarios", cred.user.uid), {
+      uid:           cred.user.uid,
+      nombre:        `${nombre.trim()} ${(apellidos || "").trim()}`.trim(),
+      email:         email.trim(),
+      telefono:      telefono || "",
+      rol:           "cliente",
+      emailVerified: false,
+      activo:        true,
+      fechaRegistro: serverTimestamp(),
+      ultimaActividad: serverTimestamp(),
+    });
+    return cred.user;
+  };
+
+  // ── Login con verificación de email ───────────────────────────────────────
+  const login = async (email, password) => {
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+    if (!cred.user.emailVerified && !ADMIN_EMAILS.includes(email.trim())) {
+      await signOut(auth);
+      throw { code: "auth/email-not-verified" };
+    }
+    activityTracker.login(cred.user.uid);
+    // Actualizar ultimaActividad
+    try {
+      await setDoc(doc(db, "usuarios", cred.user.uid), { ultimaActividad: serverTimestamp() }, { merge: true });
+    } catch { /* silencioso */ }
+    return cred.user;
+  };
+
+  // ── Login admin (sin requerir verificación de email) ─────────────────────
   const loginAdmin = (email, password) =>
     signInWithEmailAndPassword(auth, email, password);
 
-  // ── Logout (cualquier usuario) ───────────────────────────────────────────────
+  // ── Logout ────────────────────────────────────────────────────────────────
   const logout = async () => {
+    if (user) activityTracker.logout(user.uid);
     setPerfil(null);
+    setRol(null);
     await signOut(auth);
   };
 
-  // ── Iniciar verificación por teléfono (envía SMS) ────────────────────────────
-  const iniciarPhoneAuth = async (telefono) => {
-    // Recaptcha invisible — se crea una sola vez por sesión
-    if (!window._recaptchaVerifier) {
-      window._recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        "recaptcha-container",
-        {
-          size: "invisible",
-          callback: () => {},
-          "expired-callback": () => {
-            window._recaptchaVerifier = null;
-          },
-        }
-      );
-    }
-    const confirmationResult = await signInWithPhoneNumber(auth, telefono, window._recaptchaVerifier);
-    // Guardar verificationId para usarlo después en verifyPhoneOTP
-    window._verificationId = confirmationResult.verificationId;
-    return confirmationResult;
+  // ── Reenviar email de verificación ────────────────────────────────────────
+  const reenviarVerificacion = () => {
+    if (auth.currentUser) return sendEmailVerification(auth.currentUser);
+    throw new Error("No hay sesión activa");
   };
 
-  // ── Guardar/actualizar perfil de cliente en Firestore ───────────────────────
+  // ── Recuperar contraseña ──────────────────────────────────────────────────
+  const recuperarPassword = (email) => sendPasswordResetEmail(auth, email);
+
+  // ── Guardar perfil (compatibilidad con código existente) ──────────────────
   const guardarPerfil = async (uid, datos) => {
-    const ref = doc(db, "usuarios", uid);
+    const ref  = doc(db, "usuarios", uid);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      // Ya existe — solo actualizar ultimaActividad
       await setDoc(ref, { ultimaActividad: serverTimestamp() }, { merge: true });
       setPerfil(snap.data());
     } else {
-      // Nuevo cliente
       const nuevo = {
-        nombre: datos.nombre ? datos.nombre.trim() : "",
+        uid,
+        nombre:   datos.nombre  ? datos.nombre.trim() : "",
         telefono: datos.telefono || "",
-        ...(datos.email ? { email: datos.email } : {}),
-        fechaRegistro: serverTimestamp(),
-        ultimaActividad: serverTimestamp(),
-        activo: true,
+        email:    datos.email   || "",
+        rol:      "cliente",
+        activo:   true,
+        fechaRegistro:    serverTimestamp(),
+        ultimaActividad:  serverTimestamp(),
       };
       await setDoc(ref, nuevo);
       setPerfil(nuevo);
     }
-    return snap.exists(); // true = ya existía (login), false = nuevo registro
+    return snap.exists();
   };
 
-    // ── Nuevas funciones de registro y login ───────────────────────────────────────
-  const registerWithEmail = (email, password, datosPerfil) => {
-    return createUserWithEmailAndPassword(auth, email, password)
-      .then((cred) => {
-        const uid = cred.user.uid;
-        return guardarPerfil(uid, { ...datosPerfil, email });
-      });
-  };
-
-  const registerWithPhoneAndPassword = async (telefono, verificationId, code, password, datosPerfil) => {
-    // Verificar OTP
-    const credential = PhoneAuthProvider.credential(verificationId, code);
-    const userCred = await signInWithCredential(auth, credential);
-    // Asignar contraseña
-    await updatePassword(userCred.user, password);
-    const uid = userCred.user.uid;
-    await guardarPerfil(uid, { ...datosPerfil, telefono });
-    return uid;
-  };
-
-  const loginWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
-
-  const loginWithPhone = async (telefono, verificationId, code) => {
-    const credential = PhoneAuthProvider.credential(verificationId, code);
-    return signInWithCredential(auth, credential);
-  };
-
-  // Verificar OTP y crear cuenta con nombre, teléfono y contraseña
-  const verifyPhoneOTP = async (code, password, nombre) => {
-    if (!window._verificationId) {
-      throw new Error('Verification ID no está disponible. Inicie la verificación primero.');
-    }
-    // Crear credencial a partir del código OTP
-    const credential = PhoneAuthProvider.credential(window._verificationId, code);
-    // Autenticar al usuario
-    const userCred = await signInWithCredential(auth, credential);
-    // Asignar contraseña
-    await updatePassword(userCred.user, password);
-    // Guardar perfil en Firestore
-    const uid = userCred.user.uid;
-    await guardarPerfil(uid, { nombre, telefono: userCred.user.phoneNumber });
-    return uid;
-  };
-
-  const resetPassword = (email) => sendPasswordResetEmail(auth, email);
-
-  const isAdmin = !!user && ADMIN_EMAILS.includes(user.email);
-  const isCliente = !!user && !isAdmin;
+  const isAdmin   = rol === "admin"   || ADMIN_EMAILS.includes(user?.email);
+  const isCliente = rol === "cliente" && !isAdmin;
 
   return (
     <AuthContext.Provider value={{
-      user, perfil, isAdmin, isCliente, loading,
-      loginAdmin, logout, iniciarPhoneAuth, guardarPerfil,
-      registerWithEmail,
-      registerWithPhoneAndPassword,
-      loginWithEmail,
-      loginWithPhone,
-      verifyPhoneOTP,
-      resetPassword,
-    }}>      {/* Div oculto donde Firebase ancla el reCAPTCHA invisible */}
+      user, perfil, rol, isAdmin, isCliente, loading,
+      registro, login, loginAdmin, logout,
+      reenviarVerificacion, recuperarPassword, guardarPerfil,
+    }}>
       <div id="recaptcha-container" />
       {!loading && children}
     </AuthContext.Provider>

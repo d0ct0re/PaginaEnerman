@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == "admin";
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // ── Colección: usuarios ────────────────────────────────────────────────────
+    // Admins leen todo. Cada usuario solo lee/escribe su propio documento.
+    // Solo admins pueden cambiar el campo "rol".
+    match /usuarios/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) &&
+        (!("rol" in request.resource.data) || request.resource.data.rol == "cliente");
+      allow update: if (isOwner(uid) && !("rol" in request.resource.data.diff(resource.data).affectedKeys())) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Colección: user_activity ───────────────────────────────────────────────
+    // Usuarios escriben su propia actividad. Solo admin lee todo.
+    match /user_activity/{docId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ── Colección: productos ───────────────────────────────────────────────────
+    // Todos pueden leer. Solo admin puede escribir.
+    match /productos/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Colección: cotizaciones ────────────────────────────────────────────────
+    // Usuarios crean las suyas. Admin lee todas.
+    match /cotizaciones/{docId} {
+      allow create: if isAuthenticated();
+      allow read: if isAdmin() ||
+        (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Colección: pedidos/{uid}/historial ─────────────────────────────────────
+    match /pedidos/{uid}/{subcol}/{docId} {
+      allow read, write: if isOwner(uid) || isAdmin();
+    }
+
+    // ── Colección: solicitudes ─────────────────────────────────────────────────
+    match /solicitudes/{docId} {
+      allow create: if true;
+      allow read: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Colección: admin_access_log ────────────────────────────────────────────
+    // Solo escritura desde cliente (intentos de acceso). Solo admin lee.
+    match /admin_access_log/{docId} {
+      allow create: if true;
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+  }
+}

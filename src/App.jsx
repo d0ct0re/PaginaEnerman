@@ -8,6 +8,8 @@ import AccesoPage from "./pages/AccesoPage";
 import CotizaPage from "./pages/CotizaPage";
 import MisCotizacionesPage from "./pages/MisCotizacionesPage";
 import RegisterPage from "./pages/RegisterPage";
+import AdminGatePage from "./pages/AdminGatePage";
+import AdminAuthPage from "./pages/AdminAuthPage";
 import { SeccionBeneficios, SeccionUbicacion } from "./components/sections/LandingSections";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -2690,13 +2692,14 @@ function AppRoutes() {
       <Route path="/registro" element={<RegisterPage />} />
       <Route path="/cotiza"   element={<CotizaPage />} />
       <Route path="/mis-cotizaciones" element={<MisCotizacionesPage setCarrito={setCarrito} />} />
-      {/* URL secreta del admin — no está en ningún menú público */}
+      {/* Acceso admin multi-paso — URLs no publicadas */}
+      <Route path="/enr-gate"      element={<AdminGatePage />} />
+      <Route path="/enr-admin-auth" element={<AdminAuthPage />} />
       <Route path="/enr-admin" element={
         <ProtectedRoute>
           <AdminPage />
         </ProtectedRoute>
       } />
-      {/* /admin y /login ya no existen → redirigen al catálogo */}
       <Route path="/admin" element={<Navigate to="/catalogo" replace />} />
       <Route path="/login" element={<Navigate to="/catalogo" replace />} />
       <Route path="*"      element={<Navigate to="/catalogo" replace />} />
