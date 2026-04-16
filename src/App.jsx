@@ -1,11 +1,14 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link, Navigate, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
 import { collection, getDocs, doc, setDoc, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "./firebase";
-import { AuthProvider, useAuth } from "./AuthContext";
-import AdminPage from "./AdminPage";
-import LoginPage from "./LoginPage";
-import AccesoPage from "./AccesoPage";
+import { db } from "./lib/firebase";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import AdminPage from "./pages/AdminPage";
+import AccesoPage from "./pages/AccesoPage";
+import CotizaPage from "./pages/CotizaPage";
+import MisCotizacionesPage from "./pages/MisCotizacionesPage";
+import RegisterPage from "./pages/RegisterPage";
+import { SeccionBeneficios, SeccionUbicacion } from "./components/sections/LandingSections";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -338,11 +341,32 @@ function getImagenes(producto) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // COMPONENTE: TARJETA DE PRODUCTO (con indicador de variantes)
 // ═══════════════════════════════════════════════════════════════════════════════
+// ── Helper: badge de disponibilidad ──────────────────────────────────────────
+function StockBadge({ disp, small = false }) {
+  const cfg = {
+    disponible:  { label: "En stock",          bg: "#ECFDF5", color: "#059669", dot: "#10B981" },
+    ultimas:     { label: "Últimas unidades",   bg: "#FFFBEB", color: "#D97706", dot: "#F59E0B" },
+    agotado:     { label: "Agotado",            bg: "#FEF2F2", color: "#DC2626", dot: "#EF4444" },
+    consultar:   { label: "Consultar stock",    bg: "#F3F3F5", color: "#6E6E73", dot: "#9CA3AF" },
+  };
+  const c = cfg[disp] || cfg.disponible;
+  const px = small ? "px-2 py-0.5 text-[9px]" : "px-2.5 py-1 text-[10px]";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full font-bold ${px}`}
+      style={{ background: c.bg, color: c.color }}>
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.dot }} />
+      {c.label}
+    </span>
+  );
+}
+
 function TarjetaProducto({ producto, onAgregar, onVerDetalle, compacta = false }) {
   const tieneVariantes = producto.tiene_variantes && producto.variantes?.length > 0;
   const precioMinimo = tieneVariantes
     ? Math.min(...producto.variantes.filter(v => v.precio > 0).map(v => v.precio))
     : producto.precio;
+  const disp = producto.disponibilidad || "disponible";
+  const agotado = disp === "agotado";
 
   if (compacta) {
     // Versión compacta para sección de relacionados
@@ -396,6 +420,9 @@ function TarjetaProducto({ producto, onAgregar, onVerDetalle, compacta = false }
             {producto.variantes.length} medidas
           </span>
         )}
+        <div className="absolute bottom-3 left-3">
+          <StockBadge disp={disp} small />
+        </div>
       </button>
 
       {/* Info */}
@@ -439,10 +466,15 @@ function TarjetaProducto({ producto, onAgregar, onVerDetalle, compacta = false }
             Ver detalle
           </button>
           <button
-            onClick={() => tieneVariantes ? onVerDetalle(producto) : onAgregar(producto)}
-            className="py-3 rounded-xl bg-[#E0B11E] text-[#241A00] font-bold text-xs uppercase tracking-wider hover:bg-[#F1C030] transition-all active:scale-95 shadow-sm"
+            onClick={() => agotado ? null : (tieneVariantes ? onVerDetalle(producto) : onAgregar(producto))}
+            disabled={agotado}
+            className={`py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all active:scale-95 shadow-sm ${
+              agotado
+                ? "bg-[#F3F3F5] text-[#C7C7CC] cursor-not-allowed"
+                : "bg-[#E0B11E] text-[#241A00] hover:bg-[#F1C030]"
+            }`}
           >
-            {tieneVariantes ? 'Escoger' : 'Agregar'}
+            {agotado ? 'Agotado' : tieneVariantes ? 'Escoger' : 'Agregar'}
           </button>
         </div>
       </div>
@@ -488,7 +520,8 @@ function ModalDetalle({ producto, onCerrar, onAgregar, onVerDetalle, todos }) {
   const imagenes = getImagenes(producto);
   const tieneVariantes = producto.tiene_variantes && producto.variantes?.length > 0;
   const precioActual = varianteSeleccionada?.precio || producto.precio;
-  const disponibleActual = varianteSeleccionada?.disponible ?? producto.disponible;
+  const dispProd = producto.disponibilidad || "disponible";
+  const disponibleActual = dispProd !== "agotado" && (varianteSeleccionada?.disponible ?? producto.disponible ?? true);
 
   // Productos relacionados: misma categoría, excluye el actual
   const relacionados = (todos || [])
@@ -575,13 +608,7 @@ function ModalDetalle({ producto, onCerrar, onAgregar, onVerDetalle, todos }) {
                   {producto.subcategoria}
                 </span>
               )}
-              {disponibleActual ? (
-                <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
-                  <Iconos.Check /> Disponible
-                </span>
-              ) : (
-                <span className="text-red-500 text-xs font-bold">● Agotado</span>
-              )}
+              <StockBadge disp={dispProd} />
             </div>
 
             {/* Título */}
@@ -820,6 +847,20 @@ function CarritoLateral({ carrito, setCarrito, visible, onCerrar, onEliminar, na
               Ver pedido completo <Iconos.Flecha />
             </button>
             <p className="text-[10px] text-center text-[#6E6E73]">* Precios sujetos a confirmación</p>
+            {/* Servicios upsell */}
+            <div className="bg-[#1D1D1F] rounded-xl p-3.5 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#E0B11E]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Zap size={14} className="text-[#E0B11E]" />
+              </div>
+              <div>
+                <p className="text-white text-xs font-bold leading-snug">¿Necesitas instalación?</p>
+                <p className="text-white/40 text-[10px] leading-snug mt-0.5">ENERMAN ofrece servicios eléctricos 24/7 — instalación, mantenimiento y más.</p>
+                <button onClick={() => { onCerrar(); navigate('/cotiza'); }}
+                  className="text-[#E0B11E] text-[10px] font-bold mt-1.5 hover:underline">
+                  Solicitar servicio →
+                </button>
+              </div>
+            </div>
           </footer>
         )}
       </aside>
@@ -1136,10 +1177,9 @@ function LandingPage() {
           <span className="text-lg font-black text-white tracking-tighter uppercase">ENERMAN</span>
         </div>
         <nav className="hidden md:flex items-center gap-6 text-sm text-white/60 font-medium">
-          <button onClick={() => navigate('/catalogo?categoria=Conductores')} className="hover:text-white transition-colors">Conductores</button>
-          <button onClick={() => navigate('/catalogo?categoria=Iluminación')} className="hover:text-white transition-colors">Iluminación</button>
-          <button onClick={() => navigate('/catalogo?categoria=Tubería')} className="hover:text-white transition-colors">Tubería</button>
-          <button onClick={() => navigate('/catalogo')} className="hover:text-[#E0B11E] transition-colors font-bold">Ver todo</button>
+          <button onClick={() => navigate('/catalogo')} className="hover:text-white transition-colors">Catálogo</button>
+          <button onClick={() => document.getElementById('servicios')?.scrollIntoView({ behavior:'smooth' })} className="hover:text-white transition-colors">Servicios</button>
+          <button onClick={() => navigate('/cotiza')} className="hover:text-[#E0B11E] transition-colors font-semibold">Cotizar proyecto</button>
         </nav>
         <div className="flex items-center gap-3">
           <a href="https://wa.me/528144994504" target="_blank" rel="noreferrer"
@@ -1147,9 +1187,9 @@ function LandingPage() {
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.11 1.522 5.836L.044 23.956l6.285-1.647A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.8 9.8 0 01-4.99-1.364l-.358-.213-3.71.973.989-3.618-.234-.372A9.798 9.798 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
             WhatsApp
           </a>
-          <button onClick={() => navigate('/catalogo')}
+          <button onClick={() => navigate('/cotiza')}
             className="px-5 py-2 rounded-full bg-[#E0B11E] text-[#1A0E00] font-bold text-sm hover:bg-[#F1C030] transition-colors">
-            Catálogo
+            Cotizar gratis
           </button>
         </div>
       </header>
@@ -1299,15 +1339,54 @@ function LandingPage() {
       </section>
 
       {/* ── SERVICIOS ───────────────────────────────────────────── */}
-      <section className="bg-white px-6 py-20">
+      <section id="servicios" className="bg-white px-6 py-20">
         <div className="max-w-5xl mx-auto">
           <div className="mb-12">
             <p className="text-xs font-bold uppercase tracking-widest text-[#6E6E73] mb-2">Lo que hacemos</p>
-            <h2 className="text-4xl font-black text-[#1A1C1D]">Servicios eléctricos</h2>
-            <p className="text-[#6E6E73] mt-3 max-w-xl">Más que una distribuidora — respaldamos tus proyectos con ingeniería, instalación y asesoría técnica especializada.</p>
+            <h2 className="text-4xl font-black text-[#1A1C1D]">Más que un catálogo</h2>
+            <p className="text-[#6E6E73] mt-3 max-w-xl">Entrega a domicilio, cotización con ingeniero, servicio fin de semana — respaldamos tus proyectos de inicio a fin.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
+              {
+                icon: Zap,
+                color: "#E0B11E",
+                bg: "#FFFBEB",
+                titulo: "Entrega a domicilio",
+                desc: "Monterrey y área metropolitana. Envío el mismo día o siguiente día hábil para pedidos confirmados antes de las 2 pm.",
+                badge: "Mismo día",
+              },
+              {
+                icon: Star,
+                color: "#7C3AED",
+                bg: "#F5F3FF",
+                titulo: "Servicio fin de semana",
+                desc: "Sábados y domingos disponibles para obras con urgencia. Coordinamos entrega especial sin costo adicional.",
+                badge: "Sáb–Dom",
+              },
+              {
+                icon: FileText,
+                color: "#0284C7",
+                bg: "#E0F2FE",
+                titulo: "Pre-cotización formal",
+                desc: "Genera un PDF profesional numerado con tus productos, listo para presentar a tu cliente o jefe de obra.",
+                badge: "PDF + WhatsApp",
+              },
+              {
+                icon: CheckCircle2,
+                color: "#059669",
+                bg: "#ECFDF5",
+                titulo: "Cotización con ingeniero",
+                desc: "¿Tienes planos o un proyecto completo? Nuestros ingenieros aliados lo cotizan y te recomiendan el material exacto.",
+                badge: "Gratis",
+              },
+              {
+                icon: Layers,
+                color: "#DC2626",
+                bg: "#FEF2F2",
+                titulo: "Revisión de planos",
+                desc: "Sube tus planos eléctricos y te decimos exactamente qué material necesitas — sin desperdiciar ni una pieza.",
+              },
               {
                 icon: Zap,
                 color: "#E0B11E",
@@ -1351,22 +1430,23 @@ function LandingPage() {
                 titulo: "Suministro de material",
                 desc: "Venta de material eléctrico al por mayor y menudeo. Entrega en obra o en almacén.",
               },
-            ].map(({ icon: Icon, color, bg, titulo, desc, imagen }) => (
-              <div key={titulo} className="group rounded-2xl overflow-hidden border border-[#E8E8EA] hover:border-transparent hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                {/* Zona imagen del servicio */}
-                {imagen ? (
-                  <img src={imagen} alt={titulo} className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-500" />
-                ) : (
-                  <div className="w-full h-40 flex items-center justify-center relative overflow-hidden" style={{ background: bg }}>
-                    <div className="absolute inset-0 opacity-20"
-                      style={{ backgroundImage: `radial-gradient(circle, ${color} 1px, transparent 1px)`, backgroundSize: '18px 18px' }} />
-                    <Icon size={52} style={{ color }} strokeWidth={1} className="opacity-50 group-hover:scale-110 transition-transform duration-300" />
-                  </div>
-                )}
-                <div className="p-5 bg-white">
+            ].map(({ icon: Icon, color, bg, titulo, desc, badge }) => (
+              <div key={titulo} className="group rounded-2xl overflow-hidden border border-[#E8E8EA] hover:border-transparent hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
+                <div className="w-full h-36 flex items-center justify-center relative overflow-hidden" style={{ background: bg }}>
+                  <div className="absolute inset-0 opacity-15"
+                    style={{ backgroundImage: `radial-gradient(circle, ${color} 1px, transparent 1px)`, backgroundSize: '18px 18px' }} />
+                  <Icon size={48} style={{ color }} strokeWidth={1.2} className="opacity-50 group-hover:scale-110 transition-transform duration-300" />
+                  {badge && (
+                    <span className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider"
+                      style={{ background: color + '22', color }}>
+                      {badge}
+                    </span>
+                  )}
+                </div>
+                <div className="p-5">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: bg }}>
-                      <Icon size={13} style={{ color }} />
+                    <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: bg }}>
+                      <Icon size={14} style={{ color }} />
                     </div>
                     <h3 className="font-black text-[#1A1C1D] text-sm">{titulo}</h3>
                   </div>
@@ -1375,18 +1455,27 @@ function LandingPage() {
               </div>
             ))}
           </div>
-          {/* CTA contacto */}
-          <div className="mt-12 bg-[#F9F9FB] rounded-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6 border border-[#E8E8EA]">
-            <div>
-              <h3 className="font-black text-[#1A1C1D] text-xl mb-1">¿Tienes un proyecto?</h3>
-              <p className="text-[#6E6E73] text-sm">Cuéntanos qué necesitas y te damos una cotización sin compromiso.</p>
+          {/* CTA cotización */}
+          <div className="mt-12 bg-[#1D1D1F] rounded-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6 overflow-hidden relative">
+            <div className="absolute inset-0 opacity-5"
+              style={{ backgroundImage: 'radial-gradient(circle, #E0B11E 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+            <div className="relative">
+              <p className="text-[#E0B11E] text-xs font-bold uppercase tracking-widest mb-1">Sin compromiso</p>
+              <h3 className="font-black text-white text-xl mb-1">¿Tienes un proyecto eléctrico?</h3>
+              <p className="text-white/50 text-sm max-w-sm">Cuéntanos qué necesitas — planos, superficie, plazo — y te enviamos cotización con ingeniero en menos de 24 horas.</p>
             </div>
-            <a href="https://wa.me/528144994504?text=Hola%20ENERMAN%2C%20quiero%20cotizar%20un%20servicio"
-              target="_blank" rel="noreferrer"
-              className="flex-shrink-0 flex items-center gap-3 px-7 py-3.5 rounded-xl bg-[#25D366] text-white font-bold hover:bg-[#22c55e] transition-colors shadow-lg shadow-[#25D366]/20">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.11 1.522 5.836L.044 23.956l6.285-1.647A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.8 9.8 0 01-4.99-1.364l-.358-.213-3.71.973.989-3.618-.234-.372A9.798 9.798 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
-              Cotizar por WhatsApp
-            </a>
+            <div className="relative flex-shrink-0 flex flex-col sm:flex-row gap-3">
+              <button onClick={() => navigate('/cotiza')}
+                className="flex items-center gap-2 px-7 py-3.5 rounded-xl bg-[#E0B11E] text-[#1A0E00] font-black hover:bg-[#F1C030] transition-colors shadow-lg shadow-[#E0B11E]/20">
+                <FileText size={18} /> Solicitar cotización
+              </button>
+              <a href="https://wa.me/528144994504?text=Hola%20ENERMAN%2C%20quiero%20cotizar%20un%20proyecto"
+                target="_blank" rel="noreferrer"
+                className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/10 text-white font-bold hover:bg-white/15 transition-colors border border-white/10">
+                <svg className="w-4 h-4 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.11 1.522 5.836L.044 23.956l6.285-1.647A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.8 9.8 0 01-4.99-1.364l-.358-.213-3.71.973.989-3.618-.234-.372A9.798 9.798 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
+                WhatsApp
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -1461,6 +1550,12 @@ function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ── BENEFICIOS ──────────────────────────────────────────── */}
+      <SeccionBeneficios />
+
+      {/* ── UBICACIÓN ───────────────────────────────────────────── */}
+      <SeccionUbicacion />
 
       {/* ── BOTÓN FLOTANTE WHATSAPP ───── */}
       <a href="https://wa.me/528144994504?text=Hola%20ENERMAN%2C%20tengo%20una%20consulta"
@@ -1596,7 +1691,7 @@ function CatalogoPage({ carrito, setCarrito }) {
               <Link to="/acceso" className="hidden md:flex text-white/70 hover:text-white text-sm font-medium transition-colors">
                 Iniciar sesión
               </Link>
-              <Link to="/acceso" className="hidden md:flex px-4 py-2 rounded-full bg-[#E0B11E] text-[#1A0E00] font-bold text-xs hover:bg-[#F0C22E] transition-colors">
+              <Link to="/registro" className="hidden md:flex px-4 py-2 rounded-full bg-[#E0B11E] text-[#1A0E00] font-bold text-xs hover:bg-[#F0C22E] transition-colors">
                 Registrarse
               </Link>
             </>
@@ -1604,7 +1699,11 @@ function CatalogoPage({ carrito, setCarrito }) {
             <Link to="/enr-admin" className="hidden md:flex text-white/70 hover:text-white text-sm font-medium transition-colors">Admin</Link>
           ) : (
             <div className="hidden md:flex items-center gap-2">
-              <span className="text-white/60 text-xs max-w-[130px] truncate">
+              <Link to="/mis-cotizaciones" className="text-white/60 hover:text-white text-xs font-medium transition-colors">
+                Mis cotizaciones
+              </Link>
+              <span className="text-white/20">|</span>
+              <span className="text-white/60 text-xs max-w-[110px] truncate">
                 {perfil?.nombre || user.phoneNumber || user.email}
               </span>
               <button onClick={logout} className="text-white/40 hover:text-white/70 text-xs transition-colors">Salir</button>
@@ -1649,6 +1748,25 @@ function CatalogoPage({ carrito, setCarrito }) {
               </button>
             );
           })}
+        </div>
+
+        {/* ── Servicios 24/7 strip ──────────────────────────── */}
+        <div className="mb-6 rounded-2xl overflow-hidden bg-[#1D1D1F] flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5">
+          <div className="flex items-center gap-3 flex-wrap justify-center sm:justify-start">
+            <span className="flex items-center gap-1.5 text-[#E0B11E] text-xs font-black uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-[#E0B11E] animate-pulse" />
+              Servicios eléctricos 24/7
+            </span>
+            {["Instalación", "Mantenimiento", "Asesoría técnica", "Revisión de planos", "Proyectos industriales"].map(s => (
+              <span key={s} className="text-white/40 text-xs hidden sm:inline">·</span>
+            )).reduce((acc, el, i) => [...acc, el,
+              <span key={`s${i}`} className="text-white/60 text-xs hidden sm:inline font-medium">{["Instalación","Mantenimiento","Asesoría técnica","Revisión de planos","Proyectos industriales"][i]}</span>
+            ], [])}
+          </div>
+          <button onClick={() => navigate('/cotiza')}
+            className="flex-shrink-0 px-4 py-2 rounded-xl bg-[#E0B11E] text-[#1A0E00] font-bold text-xs hover:bg-[#F1C030] transition-colors whitespace-nowrap">
+            Solicitar cotización →
+          </button>
         </div>
 
         {/* Buscador móvil */}
@@ -1701,13 +1819,13 @@ function CatalogoPage({ carrito, setCarrito }) {
             {marcaActiva && (
               <button onClick={() => setMarcaActiva('')}
                 className="flex items-center gap-1 px-3 py-1 bg-[#E0B11E] text-[#241A00] rounded-full text-xs font-bold">
-                {marcaActiva} ✕
+                {marcaActiva} &times;
               </button>
             )}
             {subcatActiva && (
               <button onClick={() => setSubcatActiva('')}
                 className="flex items-center gap-1 px-3 py-1 bg-[#1D1D1F] text-white rounded-full text-xs font-bold">
-                {subcatActiva} ✕
+                {subcatActiva} &times;
               </button>
             )}
           </div>
@@ -1931,10 +2049,23 @@ async function cargarImagenBase64(url) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function PedidoPage({ carrito, setCarrito }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, perfil } = useAuth();
   const [nota, setNota] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState(null); // { texto, color }
+
+  // ── Datos del cliente para la cotización ─────────────────
+  const [clienteNombre,  setClienteNombre]  = useState(perfil?.nombre  || "");
+  const [clienteEmpresa, setClienteEmpresa] = useState("");
+  const [clienteTel,     setClienteTel]     = useState(perfil?.telefono || user?.phoneNumber || "");
+  const [clienteRFC,     setClienteRFC]     = useState("");
+
+  // ── Entrega ───────────────────────────────────────────────
+  const [entrega,        setEntrega]        = useState("tienda"); // "tienda" | "domicilio"
+  const [domCalle,       setDomCalle]       = useState("");
+  const [domColonia,     setDomColonia]     = useState("");
+  const [domCP,          setDomCP]          = useState("");
+  const [domReferencias, setDomReferencias] = useState("");
 
   const piezas = carrito.reduce((acc, i) => acc + i.cantidad, 0);
   const total = carrito.reduce((acc, i) => {
@@ -1952,6 +2083,11 @@ function PedidoPage({ carrito, setCarrito }) {
     setTimeout(() => setAviso(null), 5000);
   };
 
+  const pedidoInp = "w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-[#1A1C1D] focus:outline-none focus:border-[#E0B11E] focus:ring-1 focus:ring-[#E0B11E]/20 transition-all placeholder-[#C7C7CC]";
+
+  // Genera número de cotización
+  const numCotizacion = `ENR-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+
   // Construye el mensaje de texto para WhatsApp
   const buildMensaje = () => {
     const fecha = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
@@ -1961,9 +2097,15 @@ function PedidoPage({ carrito, setCarrito }) {
       const subtotal = precio > 0 ? `$${(precio * item.cantidad).toFixed(2)} MXN` : "Consultar precio";
       return `${i + 1}. ${item.nombre}${variante}\n   Cant: ${item.cantidad}${precio > 0 ? ` | $${precio.toFixed(2)} c/u` : ""} | *${subtotal}*`;
     });
-    const totalTexto = total > 0 ? `\n*Total: $${total.toFixed(2)} MXN*` : "";
-    const notaTexto = nota.trim() ? `\n📝 Notas: ${nota.trim()}` : "";
-    return `*PEDIDO ENERMAN* 📦\n_${fecha}_\n\n${lineas.join("\n\n")}${totalTexto}${notaTexto}`;
+    const totalTexto = total > 0 ? `\n*Total estimado: $${total.toFixed(2)} MXN*` : "";
+    const notaTexto  = nota.trim() ? `\nNotas: ${nota.trim()}` : "";
+    const clienteTexto = clienteNombre.trim()
+      ? `\n\n*Cliente:* ${clienteNombre}${clienteEmpresa ? ` — ${clienteEmpresa}` : ""}${clienteTel ? `\nTel: ${clienteTel}` : ""}${clienteRFC ? `\nRFC: ${clienteRFC}` : ""}`
+      : "";
+    const entregaTexto = entrega === "domicilio"
+      ? `\n\n*Entrega a domicilio:*\n${domCalle}, Col. ${domColonia}, C.P. ${domCP}${domReferencias ? `\nRef: ${domReferencias}` : ""}`
+      : "\n\n*Retiro en tienda*";
+    return `*PRE-COTIZACION ENERMAN*\n_Folio: ${numCotizacion}_\n_${fecha}_${clienteTexto}${entregaTexto}\n\n${lineas.join("\n\n")}${totalTexto}${notaTexto}\n\n_Valida por 15 dias habiles_`;
   };
 
   // Genera el documento PDF con imágenes
@@ -1973,17 +2115,50 @@ function PedidoPage({ carrito, setCarrito }) {
     const pageW = doc.internal.pageSize.width;
     const pageH = doc.internal.pageSize.height;
 
+    // Fecha de validez (+15 días hábiles ≈ +21 días)
+    const fechaValidez = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)
+      .toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" });
+
     // ── Encabezado ───────────────────────────────────────────
     doc.setFillColor(29, 29, 31);
-    doc.rect(0, 0, pageW, 32, "F");
+    doc.rect(0, 0, pageW, 36, "F");
     doc.setFontSize(20); doc.setFont("helvetica", "bold");
     doc.setTextColor(224, 177, 30);
-    doc.text("ENERMAN", 14, 20);
-    doc.setFontSize(8); doc.setFont("helvetica", "normal");
+    doc.text("ENERMAN", 14, 16);
+    doc.setFontSize(7.5); doc.setFont("helvetica", "normal");
     doc.setTextColor(160, 160, 160);
-    doc.text("Material Eléctrico · Monterrey, N.L.", 14, 28);
-    doc.text(`Pedido: ${fecha}`, pageW - 14, 20, { align: "right" });
-    doc.text("Tel: 814 499 4504", pageW - 14, 28, { align: "right" });
+    doc.text("Material Eléctrico · Calle 3914, Monterrey, N.L.", 14, 24);
+    doc.text("Tel: 814 499 4504  ·  @ENERMAN", 14, 30);
+    doc.setFont("helvetica", "bold"); doc.setTextColor(224, 177, 30);
+    doc.text("PRE-COTIZACIÓN", pageW - 14, 14, { align: "right" });
+    doc.setFont("helvetica", "normal"); doc.setTextColor(180, 180, 180);
+    doc.text(`Folio: ${numCotizacion}`, pageW - 14, 21, { align: "right" });
+    doc.text(`Fecha: ${fecha}`, pageW - 14, 27, { align: "right" });
+    doc.text(`Válida hasta: ${fechaValidez}`, pageW - 14, 33, { align: "right" });
+
+    // ── Datos del cliente ─────────────────────────────────────
+    let afterHeader = 42;
+    if (clienteNombre.trim() || clienteEmpresa.trim()) {
+      doc.setFillColor(248, 248, 250);
+      doc.rect(10, afterHeader, pageW - 20, clienteEmpresa.trim() ? 18 : 12, "F");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(40, 40, 40);
+      doc.text(`Cliente: ${clienteNombre}${clienteEmpresa ? " — " + clienteEmpresa : ""}`, 14, afterHeader + 8);
+      if (clienteTel || clienteRFC) {
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(100, 100, 100);
+        const extras = [clienteTel ? `Tel: ${clienteTel}` : null, clienteRFC ? `RFC: ${clienteRFC}` : null].filter(Boolean).join("   ");
+        doc.text(extras, 14, afterHeader + 15);
+        afterHeader += 6;
+      }
+      afterHeader += 16;
+    }
+
+    // ── Entrega ───────────────────────────────────────────────
+    if (entrega === "domicilio" && domCalle.trim()) {
+      doc.setFillColor(224, 177, 30, 30);
+      doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(120, 90, 0);
+      doc.text(`Entrega a domicilio: ${domCalle}, Col. ${domColonia}, C.P. ${domCP}`, 14, afterHeader + 6);
+      afterHeader += 12;
+    }
 
     // ── Tabla ────────────────────────────────────────────────
     const filas = carrito.map((item) => {
@@ -2000,7 +2175,7 @@ function PedidoPage({ carrito, setCarrito }) {
     });
 
     autoTable(doc, {
-      startY: 38,
+      startY: afterHeader,
       head: [["", "Producto", "Marca", "Medida", "Cant", "P.Unit", "Subtotal"]],
       body: filas,
       columnStyles: {
@@ -2048,20 +2223,28 @@ function PedidoPage({ carrito, setCarrito }) {
       doc.text(`Notas: ${nota}`, 14, finalY + (total > 0 ? 26 : 12));
     }
 
+    // ── Validez ───────────────────────────────────────────────
+    const validezY = finalY + (total > 0 ? 26 : 12) + (nota.trim() ? 10 : 0);
+    doc.setFont("helvetica", "italic"); doc.setFontSize(7.5); doc.setTextColor(140, 140, 140);
+    doc.text(`Cotización válida por 15 días hábiles hasta el ${fechaValidez}. Precios sujetos a disponibilidad.`, 14, validezY + 8);
+
     // ── Pie de página ────────────────────────────────────────
     doc.setFillColor(29, 29, 31);
-    doc.rect(0, pageH - 12, pageW, 12, "F");
-    doc.setFontSize(7); doc.setTextColor(120, 120, 120);
-    doc.text("ENERMAN · Calle 3914, Monterrey N.L. · 814 499 4504 · @ENERMAN", pageW / 2, pageH - 4, { align: "center" });
+    doc.rect(0, pageH - 14, pageW, 14, "F");
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(120, 120, 120);
+    doc.text("ENERMAN · Calle 3914, Monterrey N.L. · 814 499 4504 · @ENERMAN", pageW / 2, pageH - 7, { align: "center" });
+    doc.setTextColor(90, 90, 90);
+    doc.text(`Folio: ${numCotizacion}`, pageW - 14, pageH - 3, { align: "right" });
 
     return doc;
   };
 
-  // ── Guardar pedido en Firestore ───────────────────────────
+  // ── Guardar cotización en Firestore ──────────────────────
   const guardarPedidoFirestore = async () => {
     if (!user) return;
     try {
-      await addDoc(collection(db, "pedidos", user.uid, "historial"), {
+      const data = {
+        folio: numCotizacion,
         items: carrito.map(i => ({
           id: i.id || null,
           nombre: i.nombre,
@@ -2072,10 +2255,28 @@ function PedidoPage({ carrito, setCarrito }) {
         })),
         total,
         nota: nota.trim() || null,
+        cliente: {
+          nombre: clienteNombre.trim() || perfil?.nombre || "",
+          empresa: clienteEmpresa.trim() || null,
+          telefono: clienteTel.trim() || null,
+          rfc: clienteRFC.trim() || null,
+        },
+        entrega: entrega === "domicilio" ? {
+          tipo: "domicilio",
+          calle: domCalle,
+          colonia: domColonia,
+          cp: domCP,
+          referencias: domReferencias,
+        } : { tipo: "tienda" },
         fecha: serverTimestamp(),
         estado: "enviado",
         canal: "whatsapp",
-      });
+        uid: user.uid,
+      };
+      // Guardar en historial del usuario
+      await addDoc(collection(db, "pedidos", user.uid, "historial"), data);
+      // Guardar en colección global de cotizaciones para admin
+      await addDoc(collection(db, "cotizaciones"), data);
     } catch {
       // No bloqueamos el flujo si falla el guardado
     }
@@ -2110,7 +2311,7 @@ function PedidoPage({ carrito, setCarrito }) {
       // En desktop: descarga PDF + abre WhatsApp texto
       doc.save(nombre);
       setTimeout(() => window.open(waUrl, "_blank"), 600);
-      mostrarAviso("✅ PDF descargado · Adjúntalo en WhatsApp al enviar el mensaje", "#1D1D1F");
+      mostrarAviso("PDF descargado — Adjúntalo en WhatsApp al enviar el mensaje", "#1D1D1F");
     } finally {
       setEnviando(false);
     }
@@ -2267,6 +2468,91 @@ function PedidoPage({ carrito, setCarrito }) {
                   <p className="text-[10px] text-[#6E6E73] mt-2">* Precios sujetos a confirmación. No incluye IVA.</p>
                 </div>
 
+                {/* ── Datos del cliente ──────────────────────── */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-6 h-6 rounded-lg bg-[#FFF8E1] flex items-center justify-center">
+                      <FileText size={13} className="text-[#E0B11E]" />
+                    </div>
+                    <h3 className="font-bold text-[#1A1C1D] text-sm">Datos para la cotización</h3>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-[#6E6E73] uppercase tracking-wide mb-1">Nombre</label>
+                        <input type="text" value={clienteNombre} onChange={e => setClienteNombre(e.target.value)}
+                          placeholder="Tu nombre" className={pedidoInp} />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-[#6E6E73] uppercase tracking-wide mb-1">Empresa</label>
+                        <input type="text" value={clienteEmpresa} onChange={e => setClienteEmpresa(e.target.value)}
+                          placeholder="(opcional)" className={pedidoInp} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-[#6E6E73] uppercase tracking-wide mb-1">Teléfono</label>
+                        <input type="tel" value={clienteTel} onChange={e => setClienteTel(e.target.value)}
+                          placeholder="814 000 0000" className={pedidoInp} />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-[#6E6E73] uppercase tracking-wide mb-1">RFC</label>
+                        <input type="text" value={clienteRFC} onChange={e => setClienteRFC(e.target.value)}
+                          placeholder="(opcional)" className={`${pedidoInp} uppercase`} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Tipo de entrega ────────────────────────── */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm">
+                  <h3 className="font-bold text-[#1A1C1D] text-sm mb-3">¿Cómo recibes tu material?</h3>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {[
+                      { v: "tienda",    label: "Recoger en tienda" },
+                      { v: "domicilio", label: "Envío a domicilio" },
+                    ].map(op => (
+                      <button key={op.v} onClick={() => setEntrega(op.v)}
+                        className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 text-xs font-bold transition-all ${
+                          entrega === op.v ? "border-[#E0B11E] bg-[#FFF8E1] text-[#1A0E00]" : "border-gray-200 text-[#6E6E73] hover:border-gray-300"
+                        }`}>
+                        {op.label}
+                      </button>
+                    ))}
+                  </div>
+                  {entrega === "domicilio" && (
+                    <div className="space-y-2.5 pt-1 border-t border-[#F2F2F7]">
+                      <div>
+                        <label className="block text-[10px] font-bold text-[#6E6E73] uppercase tracking-wide mb-1">Calle y número *</label>
+                        <input type="text" value={domCalle} onChange={e => setDomCalle(e.target.value)}
+                          placeholder="Av. Constitución 1234" className={pedidoInp} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-[#6E6E73] uppercase tracking-wide mb-1">Colonia</label>
+                          <input type="text" value={domColonia} onChange={e => setDomColonia(e.target.value)}
+                            placeholder="Col. Centro" className={pedidoInp} />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-[#6E6E73] uppercase tracking-wide mb-1">C.P.</label>
+                          <input type="text" value={domCP} onChange={e => setDomCP(e.target.value)}
+                            placeholder="64000" className={pedidoInp} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-[#6E6E73] uppercase tracking-wide mb-1">Referencias</label>
+                        <input type="text" value={domReferencias} onChange={e => setDomReferencias(e.target.value)}
+                          placeholder="Entre calles, color de fachada…" className={pedidoInp} />
+                      </div>
+                    </div>
+                  )}
+                  {entrega === "tienda" && (
+                    <p className="text-[10px] text-[#6E6E73] leading-relaxed">
+                      Calle 3914, Monterrey N.L. · Lun–Vie 8:00–18:00 · Sáb 9:00–14:00
+                    </p>
+                  )}
+                </div>
+
                 {/* Notas */}
                 <div className="bg-white rounded-2xl p-5 shadow-sm">
                   <h3 className="font-bold text-[#1A1C1D] mb-3 text-sm">Notas del pedido</h3>
@@ -2303,8 +2589,8 @@ function PedidoPage({ carrito, setCarrito }) {
                         <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.11 1.522 5.836L.044 23.956l6.285-1.647A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.8 9.8 0 01-4.99-1.364l-.358-.213-3.71.973.989-3.618-.234-.372A9.798 9.798 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/>
                       </svg>
                       <div className="text-left">
-                        <p className="text-sm font-black leading-tight">Enviar pedido por WhatsApp</p>
-                        <p className="text-[10px] opacity-80 font-normal">Genera PDF + abre conversación</p>
+                        <p className="text-sm font-black leading-tight">Enviar pre-cotización por WhatsApp</p>
+                        <p className="text-[10px] opacity-80 font-normal">PDF folio {numCotizacion} · Válida 15 días</p>
                       </div>
                     </>
                   )}
@@ -2317,6 +2603,18 @@ function PedidoPage({ carrito, setCarrito }) {
                   className="w-full py-3 rounded-2xl bg-white border border-[#E8E8EA] text-[#1A1C1D] font-bold flex items-center justify-center gap-2 text-sm disabled:opacity-60 hover:border-[#E0B11E] transition-colors shadow-sm"
                 >
                   <Download size={16} className="text-[#6E6E73]" /> Solo descargar PDF
+                </button>
+
+                {/* Guardar cotización */}
+                <button
+                  onClick={async () => {
+                    await guardarPedidoFirestore();
+                    navigate("/mis-cotizaciones");
+                  }}
+                  disabled={enviando}
+                  className="w-full py-3 rounded-2xl bg-white border border-[#E8E8EA] text-[#1A1C1D] font-bold flex items-center justify-center gap-2 text-sm disabled:opacity-60 hover:border-[#E0B11E] transition-colors shadow-sm"
+                >
+                  <FileText size={16} className="text-[#6E6E73]" /> Guardar cotización
                 </button>
 
                 {/* Info contacto */}
@@ -2389,6 +2687,9 @@ function AppRoutes() {
       <Route path="/catalogo" element={<CatalogoPage carrito={carrito} setCarrito={setCarrito} />} />
       <Route path="/pedido"   element={<PedidoPage   carrito={carrito} setCarrito={setCarrito} />} />
       <Route path="/acceso"   element={<AccesoPage />} />
+      <Route path="/registro" element={<RegisterPage />} />
+      <Route path="/cotiza"   element={<CotizaPage />} />
+      <Route path="/mis-cotizaciones" element={<MisCotizacionesPage setCarrito={setCarrito} />} />
       {/* URL secreta del admin — no está en ningún menú público */}
       <Route path="/enr-admin" element={
         <ProtectedRoute>

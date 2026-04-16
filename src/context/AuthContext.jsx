@@ -1,11 +1,16 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { auth, db } from "./firebase";
+import { auth, db } from "../lib/firebase";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
   signInWithPhoneNumber,
   RecaptchaVerifier,
+  createUserWithEmailAndPassword,
+  updatePassword,
+  sendPasswordResetEmail,
+  PhoneAuthProvider,
+  signInWithCredential,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
@@ -13,8 +18,6 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 // Agrega aquí cada email admin. La cuenta se crea en Firebase Console.
 export const ADMIN_EMAILS = [
   "d0ct0renomah@gmail.com",  // admin principal
-  "doctorenomad@gmail.com",  // variante por si acaso
-  // "director@enerman.com", // ← descomenta cuando crees la cuenta del director
 ];
 
 const AuthContext = createContext(null);
@@ -54,7 +57,7 @@ export function AuthProvider({ children }) {
   };
 
   // ── Iniciar verificación por teléfono (envía SMS) ────────────────────────────
-  const iniciarPhoneAuth = (telefono) => {
+  const iniciarPhoneAuth = async (telefono) => {
     // Recaptcha invisible — se crea una sola vez por sesión
     if (!window._recaptchaVerifier) {
       window._recaptchaVerifier = new RecaptchaVerifier(
@@ -69,7 +72,10 @@ export function AuthProvider({ children }) {
         }
       );
     }
-    return signInWithPhoneNumber(auth, telefono, window._recaptchaVerifier);
+    const confirmationResult = await signInWithPhoneNumber(auth, telefono, window._recaptchaVerifier);
+    // Guardar verificationId para usarlo después en verifyPhoneOTP
+    window._verificationId = confirmationResult.verificationId;
+    return confirmationResult;
   };
 
   // ── Guardar/actualizar perfil de cliente en Firestore ───────────────────────
@@ -96,6 +102,52 @@ export function AuthProvider({ children }) {
     return snap.exists(); // true = ya existía (login), false = nuevo registro
   };
 
+    // ── Nuevas funciones de registro y login ───────────────────────────────────────
+  const registerWithEmail = (email, password, datosPerfil) => {
+    return createUserWithEmailAndPassword(auth, email, password)
+      .then((cred) => {
+        const uid = cred.user.uid;
+        return guardarPerfil(uid, { ...datosPerfil, email });
+      });
+  };
+
+  const registerWithPhoneAndPassword = async (telefono, verificationId, code, password, datosPerfil) => {
+    // Verificar OTP
+    const credential = PhoneAuthProvider.credential(verificationId, code);
+    const userCred = await signInWithCredential(auth, credential);
+    // Asignar contraseña
+    await updatePassword(userCred.user, password);
+    const uid = userCred.user.uid;
+    await guardarPerfil(uid, { ...datosPerfil, telefono });
+    return uid;
+  };
+
+  const loginWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
+
+  const loginWithPhone = async (telefono, verificationId, code) => {
+    const credential = PhoneAuthProvider.credential(verificationId, code);
+    return signInWithCredential(auth, credential);
+  };
+
+  // Verificar OTP y crear cuenta con nombre, teléfono y contraseña
+  const verifyPhoneOTP = async (code, password, nombre) => {
+    if (!window._verificationId) {
+      throw new Error('Verification ID no está disponible. Inicie la verificación primero.');
+    }
+    // Crear credencial a partir del código OTP
+    const credential = PhoneAuthProvider.credential(window._verificationId, code);
+    // Autenticar al usuario
+    const userCred = await signInWithCredential(auth, credential);
+    // Asignar contraseña
+    await updatePassword(userCred.user, password);
+    // Guardar perfil en Firestore
+    const uid = userCred.user.uid;
+    await guardarPerfil(uid, { nombre, telefono: userCred.user.phoneNumber });
+    return uid;
+  };
+
+  const resetPassword = (email) => sendPasswordResetEmail(auth, email);
+
   const isAdmin = !!user && ADMIN_EMAILS.includes(user.email);
   const isCliente = !!user && !isAdmin;
 
@@ -103,8 +155,13 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, perfil, isAdmin, isCliente, loading,
       loginAdmin, logout, iniciarPhoneAuth, guardarPerfil,
-    }}>
-      {/* Div oculto donde Firebase ancla el reCAPTCHA invisible */}
+      registerWithEmail,
+      registerWithPhoneAndPassword,
+      loginWithEmail,
+      loginWithPhone,
+      verifyPhoneOTP,
+      resetPassword,
+    }}>      {/* Div oculto donde Firebase ancla el reCAPTCHA invisible */}
       <div id="recaptcha-container" />
       {!loading && children}
     </AuthContext.Provider>

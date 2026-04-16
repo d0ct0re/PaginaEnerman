@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
-import { db } from "./firebase";
-import { useAuth } from "./AuthContext";
+import { db } from "../lib/firebase";
+import { useAuth } from "../context/AuthContext";
 
 // ─── PANEL DE ADMINISTRACIÓN ENERMAN ─────────────────────────────────────────
 // URL secreta: /enr-admin
@@ -115,9 +115,181 @@ function TabClientes() {
   );
 }
 
+// ── Componente: cotizaciones enviadas ─────────────────────────────────────────
+function TabCotizaciones() {
+  const [cotizaciones, setCotizaciones] = useState([]);
+  const [cargando, setCargando]         = useState(true);
+  const [busqueda, setBusqueda]         = useState("");
+  const [detalle, setDetalle]           = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const snap = await getDocs(collection(db, "cotizaciones"));
+        const data = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+        data.sort((a, b) => (b.fecha?.toMillis?.() || 0) - (a.fecha?.toMillis?.() || 0));
+        setCotizaciones(data);
+      } catch (e) {
+        console.error("Error cargando cotizaciones:", e);
+      } finally {
+        setCargando(false);
+      }
+    })();
+  }, []);
+
+  const filtradas = cotizaciones.filter(c => {
+    const q = busqueda.toLowerCase();
+    return !q
+      || c.folio?.toLowerCase().includes(q)
+      || c.cliente?.nombre?.toLowerCase().includes(q)
+      || c.cliente?.empresa?.toLowerCase().includes(q)
+      || c.cliente?.telefono?.includes(q);
+  });
+
+  const fmtFecha = (ts) => ts?.toDate
+    ? ts.toDate().toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "—";
+
+  const fmtMXN = (n) => n > 0
+    ? `$${Number(n).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`
+    : "Consultar";
+
+  if (cargando) return <p style={{ color: "#888", padding: 40, textAlign: "center" }}>Cargando cotizaciones…</p>;
+
+  return (
+    <div>
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
+        {[
+          { label: "Total cotizaciones", value: cotizaciones.length, color: "#e0b11e" },
+          { label: "Este mes", value: cotizaciones.filter(c => {
+            const ms = c.fecha?.toMillis?.() || 0;
+            const inicio = new Date(); inicio.setDate(1); inicio.setHours(0,0,0,0);
+            return ms >= inicio.getTime();
+          }).length, color: "#7AB800" },
+          { label: "Total facturado (estimado)", value: fmtMXN(cotizaciones.reduce((s, c) => s + (c.total || 0), 0)), color: "#25D366" },
+        ].map(s => (
+          <div key={s.label} style={{ background: "#111", borderRadius: 12, padding: "16px 20px" }}>
+            <p style={{ color: "#666", fontSize: 11, marginBottom: 4 }}>{s.label}</p>
+            <p style={{ color: s.color, fontSize: 22, fontWeight: 900 }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Buscar */}
+      <input type="text" placeholder="Buscar por folio, cliente, empresa, teléfono…"
+        value={busqueda} onChange={e => setBusqueda(e.target.value)}
+        style={{ width: "100%", background: "#111", border: "1px solid #222", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, marginBottom: 16, boxSizing: "border-box" }} />
+
+      {/* Tabla */}
+      <div style={{ background: "#111", borderRadius: 12, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: "#0a0a0a", color: "#666", textAlign: "left" }}>
+              {["Folio","Cliente","Empresa","Entrega","Total","Fecha","Productos"].map(h => (
+                <th key={h} style={{ padding: "10px 12px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtradas.length === 0 && (
+              <tr><td colSpan={7} style={{ padding: 32, textAlign: "center", color: "#555" }}>Sin cotizaciones todavía</td></tr>
+            )}
+            {filtradas.map((c, i) => (
+              <tr key={c._id}
+                onClick={() => setDetalle(c)}
+                style={{ borderTop: "1px solid #1a1a1a", cursor: "pointer", background: i % 2 === 0 ? "transparent" : "#0d0d0d" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#1a1a1a"}
+                onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "#0d0d0d"}
+              >
+                <td style={{ padding: "10px 12px", color: "#e0b11e", fontWeight: 700 }}>{c.folio || "—"}</td>
+                <td style={{ padding: "10px 12px", color: "#e8e8e8" }}>{c.cliente?.nombre || "—"}</td>
+                <td style={{ padding: "10px 12px", color: "#888" }}>{c.cliente?.empresa || "—"}</td>
+                <td style={{ padding: "10px 12px" }}>
+                  <span style={{ background: c.entrega?.tipo === "domicilio" ? "#1a2a1a" : "#1a1a2a", color: c.entrega?.tipo === "domicilio" ? "#7AB800" : "#7ab8e0", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700 }}>
+                    {c.entrega?.tipo === "domicilio" ? "🚚 Domicilio" : "🏪 Tienda"}
+                  </span>
+                </td>
+                <td style={{ padding: "10px 12px", color: "#7AB800", fontWeight: 700 }}>{fmtMXN(c.total)}</td>
+                <td style={{ padding: "10px 12px", color: "#666" }}>{fmtFecha(c.fecha)}</td>
+                <td style={{ padding: "10px 12px", color: "#888" }}>{c.items?.length || 0} producto{c.items?.length !== 1 ? "s" : ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal detalle */}
+      {detalle && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={() => setDetalle(null)}>
+          <div style={{ background: "#111", borderRadius: 16, maxWidth: 520, width: "100%", maxHeight: "80vh", overflowY: "auto", padding: 28, border: "1px solid #222" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+              <div>
+                <p style={{ color: "#e0b11e", fontSize: 18, fontWeight: 900 }}>{detalle.folio}</p>
+                <p style={{ color: "#666", fontSize: 11, marginTop: 2 }}>{fmtFecha(detalle.fecha)}</p>
+              </div>
+              <button onClick={() => setDetalle(null)}
+                style={{ background: "#1a1a1a", border: "none", color: "#888", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 13 }}>✕ Cerrar</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+              {[
+                ["Cliente", detalle.cliente?.nombre],
+                ["Empresa", detalle.cliente?.empresa || "—"],
+                ["Teléfono", detalle.cliente?.telefono || "—"],
+                ["RFC", detalle.cliente?.rfc || "—"],
+                ["Entrega", detalle.entrega?.tipo === "domicilio" ? "🚚 Domicilio" : "🏪 Tienda"],
+                ["Total", fmtMXN(detalle.total)],
+              ].map(([k, v]) => (
+                <div key={k} style={{ background: "#0d0d0d", borderRadius: 8, padding: "8px 12px" }}>
+                  <p style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 }}>{k}</p>
+                  <p style={{ color: "#e8e8e8", fontSize: 12, fontWeight: 600 }}>{v || "—"}</p>
+                </div>
+              ))}
+            </div>
+
+            {detalle.entrega?.tipo === "domicilio" && detalle.entrega?.calle && (
+              <div style={{ background: "#0d1a0d", borderRadius: 8, padding: "10px 12px", marginBottom: 16, border: "1px solid #1a2a1a" }}>
+                <p style={{ color: "#7AB800", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Dirección de entrega</p>
+                <p style={{ color: "#aaa", fontSize: 12 }}>{detalle.entrega.calle}, Col. {detalle.entrega.colonia}, C.P. {detalle.entrega.cp}</p>
+                {detalle.entrega.referencias && <p style={{ color: "#666", fontSize: 11 }}>Ref: {detalle.entrega.referencias}</p>}
+              </div>
+            )}
+
+            <p style={{ color: "#666", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Productos ({detalle.items?.length})</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {detalle.items?.map((item, i) => (
+                <div key={i} style={{ background: "#0d0d0d", borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <p style={{ color: "#e8e8e8", fontSize: 12, fontWeight: 600 }}>{item.nombre}</p>
+                    <p style={{ color: "#666", fontSize: 10 }}>{item.marca || ""}{item.varianteNombre ? ` · ${item.varianteNombre}` : ""}</p>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <p style={{ color: "#e0b11e", fontSize: 12, fontWeight: 700 }}>×{item.cantidad}</p>
+                    {item.precio > 0 && <p style={{ color: "#666", fontSize: 10 }}>${item.precio.toFixed(2)} c/u</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {detalle.nota && (
+              <div style={{ background: "#0d0d0d", borderRadius: 8, padding: "10px 12px", marginTop: 12 }}>
+                <p style={{ color: "#666", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Notas</p>
+                <p style={{ color: "#aaa", fontSize: 12 }}>{detalle.nota}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminPage() {
   const { user, logout } = useAuth();
-  const [tab, setTab]                     = useState("productos"); // "productos" | "clientes"
+  const [tab, setTab]                     = useState("productos"); // "productos" | "clientes" | "cotizaciones"
   const [productos, setProductos]         = useState([]);
   const [cargando, setCargando]           = useState(true);
   const [busqueda, setBusqueda]           = useState("");
@@ -185,17 +357,17 @@ function AdminPage() {
         const newId = "prod_" + Date.now();
         const ref = doc(db, "productos", newId);
         await setDoc(ref, { ...datos, id: newId });
-        mostrarMensaje("✅ Producto agregado correctamente");
+        mostrarMensaje("Producto agregado correctamente");
       } else {
         const ref = doc(db, "productos", productoEdit._docId);
         await updateDoc(ref, datos);
-        mostrarMensaje("✅ Producto actualizado");
+        mostrarMensaje("Producto actualizado correctamente");
       }
       setProductoEdit(null);
       setModoNuevo(false);
       await cargarProductos();
     } catch (e) {
-      mostrarMensaje("❌ Error: " + e.message, "error");
+      mostrarMensaje("Error: " + e.message, "error");
     } finally {
       setGuardando(false);
     }
@@ -206,7 +378,7 @@ function AdminPage() {
     if (!confirm(`¿Eliminar "${p.title}"? Esta acción no se puede deshacer.`)) return;
     try {
       await deleteDoc(doc(db, "productos", p._docId));
-      mostrarMensaje("🗑️ Producto eliminado");
+      mostrarMensaje("Producto eliminado");
       await cargarProductos();
     } catch (e) {
       mostrarMensaje("❌ Error al eliminar: " + e.message, "error");
@@ -236,7 +408,7 @@ function AdminPage() {
         </div>
         {/* Tabs */}
         <div style={{ display:"flex", gap:4, background:"#111", borderRadius:10, padding:4 }}>
-          {[["productos","📦 Productos"],["clientes","👤 Clientes"]].map(([key,label]) => (
+          {[["productos","Productos"],["clientes","Clientes"],["cotizaciones","Cotizaciones"]].map(([key,label]) => (
             <button key={key} onClick={() => setTab(key)}
               style={{ padding:"6px 16px", borderRadius:8, border:"none", cursor:"pointer", fontSize:13, fontWeight:600,
                 background: tab===key ? "#e0b11e" : "transparent",
@@ -271,8 +443,11 @@ function AdminPage() {
         {/* Tab Clientes */}
         {tab === "clientes" && <TabClientes />}
 
+        {/* Tab Cotizaciones */}
+        {tab === "cotizaciones" && <TabCotizaciones />}
+
         {/* Tab Productos */}
-        {tab !== "clientes" && <>
+        {tab === "productos" && <>
 
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
@@ -359,7 +534,7 @@ function AdminPage() {
                       <div style={{ width: 48, height: 48, borderRadius: 8, overflow: "hidden", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         {p.imagen_principal
                           ? <img src={p.imagen_principal} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => e.target.style.display = "none"} />
-                          : <span style={{ fontSize: 20, opacity: 0.3 }}>📦</span>
+                          : <span style={{ fontSize: 11, opacity: 0.3, color: "#fff", fontFamily: "monospace" }}>SIN IMG</span>
                         }
                       </div>
                     </td>
@@ -382,15 +557,15 @@ function AdminPage() {
                       <div style={{ display: "flex", gap: 6 }}>
                         <button onClick={() => setVistaDetalle(p)}
                           style={{ background: "#1a1a1a", color: "#888", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>
-                          👁 Ver
+                          Ver
                         </button>
                         <button onClick={() => { setProductoEdit(p); setModoNuevo(false); }}
                           style={{ background: "#1c2a1a", color: "#4ade80", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>
-                          ✏️ Editar
+                          Editar
                         </button>
                         <button onClick={() => eliminarProducto(p)}
                           style={{ background: "#2a1a1a", color: "#f87171", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>
-                          🗑
+                          Eliminar
                         </button>
                       </div>
                     </td>
@@ -438,7 +613,7 @@ function AdminPage() {
               <div style={{ width: 140, height: 140, borderRadius: 12, overflow: "hidden", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {vistaDetalle.imagen_principal
                   ? <img src={vistaDetalle.imagen_principal} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  : <span style={{ fontSize: 40, opacity: 0.3 }}>📦</span>
+                  : <span style={{ fontSize: 11, opacity: 0.3, color: "#fff", fontFamily: "monospace" }}>SIN IMG</span>
                 }
               </div>
               <div>
@@ -522,6 +697,7 @@ function ModalEditar({ producto, modoNuevo, guardando, onGuardar, onCerrar }) {
     precio_desde:     producto.precio_desde || 0,
     activo:           producto.activo !== false,
     disponible:       producto.disponible !== false,
+    disponibilidad:   producto.disponibilidad || "disponible",
     tiene_variantes:  producto.tiene_variantes || false,
   });
   const [variantes, setVariantes] = useState(normalizarVariantes(producto.variantes));
@@ -649,11 +825,24 @@ function ModalEditar({ producto, modoNuevo, guardando, onGuardar, onCerrar }) {
           ))}
         </div>
 
+        {/* Disponibilidad */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontSize: 11, color: "#666", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
+            Estado de disponibilidad (stock)
+          </label>
+          <select value={form.disponibilidad} onChange={e => set("disponibilidad", e.target.value)}
+            style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, width: "100%" }}>
+            <option value="disponible">En stock — Disponible</option>
+            <option value="ultimas">Últimas unidades</option>
+            <option value="agotado">Agotado</option>
+            <option value="consultar">Consultar disponibilidad</option>
+          </select>
+        </div>
+
         {/* Toggles */}
         <div style={{ display: "flex", gap: 24, marginBottom: 24 }}>
           {[
             { id: "activo", key: "activo", label: "Activo (visible en catálogo)" },
-            { id: "disponible", key: "disponible", label: "Disponible (en stock)" },
             { id: "tiene_variantes", key: "tiene_variantes", label: "Tiene variantes (tallas/medidas)" },
           ].map(({ id, key, label }) => (
             <div key={id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -731,7 +920,7 @@ function ModalEditar({ producto, modoNuevo, guardando, onGuardar, onCerrar }) {
         <div style={{ display: "flex", gap: 12 }}>
           <button onClick={handleGuardar} disabled={guardando}
             style={{ flex: 1, background: "#e0b11e", color: "#000", border: "none", borderRadius: 12, padding: "14px", fontWeight: 700, cursor: guardando ? "not-allowed" : "pointer", fontSize: 14, opacity: guardando ? 0.7 : 1 }}>
-            {guardando ? "Guardando..." : modoNuevo ? "✅ Crear producto" : "✅ Guardar cambios"}
+            {guardando ? "Guardando..." : modoNuevo ? "Crear producto" : "Guardar cambios"}
           </button>
           <button onClick={onCerrar}
             style={{ background: "#1a1a1a", color: "#888", border: "none", borderRadius: 12, padding: "14px 20px", cursor: "pointer" }}>
