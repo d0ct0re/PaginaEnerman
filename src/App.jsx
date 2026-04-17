@@ -957,46 +957,48 @@ const ElectricPattern = () => (
 );
 
 const HeroTowers = () => {
-  const C  = '#E0B11E';   // dorado ENERMAN
-  const CL = '#FFD84D';   // dorado claro — partículas / brillos
+  const C  = '#E0B11E';
+  const CL = '#FFD84D';
   const W  = 1000;
   const H  = 480;
 
-  // ── Torres: x del mástil, y de base, altura, ancho base ──────────────────
+  // ── Torres con perspectiva de profundidad ─────────────────────────────────
+  // Izquierda = fondo lejano (pequeño, tenue) → Derecha = primer plano (grande, brillante)
   const torres = [
-    { x: 110, yB: 400, h: 260, bw: 34 },
-    { x: 320, yB: 400, h: 280, bw: 38 },
-    { x: 560, yB: 400, h: 265, bw: 36 },
-    { x: 780, yB: 400, h: 250, bw: 32 },
+    { x: 92,  yB: 406, h: 190, bw: 21, sw: 0.64, op: 0.43 },
+    { x: 294, yB: 403, h: 234, bw: 30, sw: 0.82, op: 0.62 },
+    { x: 526, yB: 400, h: 272, bw: 38, sw: 1.02, op: 0.82 },
+    { x: 758, yB: 397, h: 306, bw: 46, sw: 1.24, op: 1.00 },
   ];
 
-  // ── Dibuja una torre celosía vertical ────────────────────────────────────
-  const Torre = ({ x, yB, h, bw, idx }) => {
-    const yT   = yB - h;           // cima del mástil
-    const yA1  = yT + h * 0.12;    // brazo superior
-    const yA2  = yT + h * 0.26;    // brazo inferior
-    const yW   = yT + h * 0.42;    // cintura
-    const aw1  = bw * 1.9;         // alcance brazo sup
-    const aw2  = bw * 1.45;        // alcance brazo inf
-    const sw   = 1.1;
-    const ld   = `${1.4 + idx * 0.35}s`;
+  // ── Torre celosía con escala de profundidad ──────────────────────────────
+  const Torre = ({ x, yB, h, bw, sw, op, idx }) => {
+    const yT  = yB - h;
+    const yA1 = yT + h * 0.12;
+    const yA2 = yT + h * 0.26;
+    const yW  = yT + h * 0.42;
+    const aw1 = bw * 1.9;
+    const aw2 = bw * 1.45;
+    const ld  = `${1.4 + idx * 0.35}s`;
 
-    // secciones del cuerpo (y1, y2, hw1, hw2)
     const segs = [
-      [yT,       yA1, bw*0.05, bw*0.06],
-      [yA1,      yA2, bw*0.06, bw*0.12],
-      [yA2,      yW,  bw*0.12, bw*0.18],
-      [yW,       yW + h*0.22, bw*0.18, bw*0.34],
-      [yW+h*0.22, yB,  bw*0.34, bw*0.50],
+      [yT,          yA1,         bw*0.05, bw*0.06],
+      [yA1,         yA2,         bw*0.06, bw*0.12],
+      [yA2,         yW,          bw*0.12, bw*0.18],
+      [yW,          yW + h*0.22, bw*0.18, bw*0.34],
+      [yW + h*0.22, yB,          bw*0.34, bw*0.50],
     ];
 
     return (
-      <g>
-        {/* Cuerpo celosía */}
+      <g opacity={op}>
+        {/* Resplandor de base */}
+        <ellipse cx={x} cy={yB+2} rx={bw * 2.1} ry={5} fill={C} opacity={0.20} filter="url(#pg)"/>
+
+        {/* Celosía */}
         {segs.map(([y1,y2,hw1,hw2], i) => (
           <g key={i}>
-            <line x1={x-hw1} y1={y1} x2={x-hw2} y2={y2} stroke={C} strokeWidth={sw} strokeOpacity={0.85}/>
-            <line x1={x+hw1} y1={y1} x2={x+hw2} y2={y2} stroke={C} strokeWidth={sw} strokeOpacity={0.85}/>
+            <line x1={x-hw1} y1={y1} x2={x-hw2} y2={y2} stroke={C} strokeWidth={sw}     strokeOpacity={0.85}/>
+            <line x1={x+hw1} y1={y1} x2={x+hw2} y2={y2} stroke={C} strokeWidth={sw}     strokeOpacity={0.85}/>
             <line x1={x-hw1} y1={y1} x2={x+hw2} y2={y2} stroke={C} strokeWidth={sw*0.5} strokeOpacity={0.30}/>
             <line x1={x+hw1} y1={y1} x2={x-hw2} y2={y2} stroke={C} strokeWidth={sw*0.5} strokeOpacity={0.30}/>
             <line x1={x-hw2} y1={y2} x2={x+hw2} y2={y2} stroke={C} strokeWidth={sw*0.45} strokeOpacity={0.22}/>
@@ -1017,7 +1019,7 @@ const HeroTowers = () => {
         {[-1,1].map(s => (
           <g key={s}>
             <line x1={x+s*aw1} y1={yA1} x2={x+s*aw1} y2={yA1+14} stroke={C} strokeWidth={sw*1.1} strokeOpacity={0.88}/>
-            <circle cx={x+s*aw1} cy={yA1+14} r={2.4} fill={CL} filter="url(#pg)"/>
+            <circle cx={x+s*aw1} cy={yA1+14} r={2.4*sw} fill={CL} filter="url(#pg)"/>
           </g>
         ))}
 
@@ -1025,26 +1027,25 @@ const HeroTowers = () => {
         {[-1,1].map(s => (
           <g key={s}>
             <line x1={x+s*aw2} y1={yA2} x2={x+s*aw2} y2={yA2+11} stroke={C} strokeWidth={sw} strokeOpacity={0.82}/>
-            <circle cx={x+s*aw2} cy={yA2+11} r={1.9} fill={CL} filter="url(#pg)"/>
+            <circle cx={x+s*aw2} cy={yA2+11} r={1.9*sw} fill={CL} filter="url(#pg)"/>
           </g>
         ))}
 
         {/* Mástil cima */}
         <line x1={x} y1={yT} x2={x} y2={yA1} stroke={C} strokeWidth={sw*1.2} strokeOpacity={0.88}/>
 
-        {/* Luz roja de advertencia aérea */}
-        <circle cx={x} cy={yT-5} r={3} fill="#FF1A1A">
+        {/* Luz de advertencia aérea */}
+        <circle cx={x} cy={yT-5} r={3*sw} fill="#FF1A1A">
           <animate attributeName="opacity" values="1;0.08;1" dur={ld} repeatCount="indefinite"/>
         </circle>
-        <circle cx={x} cy={yT-5} r={8} fill="#FF2020" opacity="0.15">
+        <circle cx={x} cy={yT-5} r={8*sw} fill="#FF2020" opacity="0.15">
           <animate attributeName="opacity" values="0.15;0;0.15" dur={ld} repeatCount="indefinite"/>
         </circle>
       </g>
     );
   };
 
-  // ── Cables entre torres ───────────────────────────────────────────────────
-  // Para cada par de torres, dibuja 4 cables (2 por brazo, izq y der)
+  // ── Cables y partículas entre torres ────────────────────────────────────
   const cables  = [];
   const partics = [];
 
@@ -1057,57 +1058,141 @@ const HeroTowers = () => {
     const mx    = (t1.x + t2.x) / 2;
     const span  = t2.x - t1.x;
     const sag   = span * 0.055;
+    const opMid = (t1.op + t2.op) / 2;
+    const swMid = (t1.sw + t2.sw) / 2;
 
     const fases = [
-      { x1: t1.x - t1.bw*1.9, y1: yA1_1, x2: t2.x - t2.bw*1.9, y2: yA1_2, sag, op: 0.78 },
-      { x1: t1.x + t1.bw*1.9, y1: yA1_1, x2: t2.x + t2.bw*1.9, y2: yA1_2, sag, op: 0.78 },
-      { x1: t1.x - t1.bw*1.45, y1: yA2_1, x2: t2.x - t2.bw*1.45, y2: yA2_2, sag: sag*0.8, op: 0.60 },
-      { x1: t1.x + t1.bw*1.45, y1: yA2_1, x2: t2.x + t2.bw*1.45, y2: yA2_2, sag: sag*0.8, op: 0.60 },
+      { x1: t1.x - t1.bw*1.9,  y1: yA1_1, x2: t2.x - t2.bw*1.9,  y2: yA1_2, sag,         op: 0.82 },
+      { x1: t1.x + t1.bw*1.9,  y1: yA1_1, x2: t2.x + t2.bw*1.9,  y2: yA1_2, sag,         op: 0.82 },
+      { x1: t1.x - t1.bw*1.45, y1: yA2_1, x2: t2.x - t2.bw*1.45, y2: yA2_2, sag: sag*0.8, op: 0.62 },
+      { x1: t1.x + t1.bw*1.45, y1: yA2_1, x2: t2.x + t2.bw*1.45, y2: yA2_2, sag: sag*0.8, op: 0.62 },
     ];
 
     fases.forEach((f, fi) => {
       const my = (f.y1 + f.y2) / 2 + f.sag;
       const d  = `M${f.x1},${f.y1} Q${mx},${my} ${f.x2},${f.y2}`;
       cables.push(
-        <path key={`c-${i}-${fi}`} d={d} stroke={C} strokeWidth={1.1} strokeOpacity={f.op} fill="none"/>
+        <path key={`c-${i}-${fi}`} d={d}
+              stroke={C} strokeWidth={swMid * 1.1} strokeOpacity={f.op * opMid} fill="none"/>
       );
-      // 2 partículas por cable con offsets distintos
-      [0, 0.5].forEach((off, pi) => {
+      [0, 0.5].forEach((off) => {
         const dur = `${5.5 + fi*0.4 + i*0.3}s`;
         partics.push(
-          <circle key={`p-${i}-${fi}-${pi}`} r={fi < 2 ? 2.8 : 2.2} fill={CL} filter="url(#pg)">
-            <animateMotion dur={dur} repeatCount="indefinite" begin={`${-(off * parseFloat(dur) + i*1.1 + fi*0.7)}s`} path={d}/>
+          <circle key={`p-${i}-${fi}-${off}`} r={fi < 2 ? 2.8*swMid : 2.2*swMid} fill={CL} filter="url(#pg)">
+            <animateMotion dur={dur} repeatCount="indefinite"
+              begin={`${-(off * parseFloat(dur) + i*1.1 + fi*0.7)}s`} path={d}/>
           </circle>
         );
       });
     });
   }
 
-  // ── Subestación (derecha) ─────────────────────────────────────────────────
-  const sx = 878, sy = 308;
+  // ── Transformador de potencia (grande, rotado) ───────────────────────────
+  const t4   = torres[3];
+  const sbx  = 850;   // left edge
+  const sby  = 224;   // top edge
+  const stw  = 128;   // width
+  const sth  = 120;   // height
+  const scx  = sbx + stw / 2;   // 914
+  const scy  = sby + sth / 2;   // 284
+  const bshY = sby - 44;        // top of bushings
+
+  // Puntos de conexión de brazos de t4
+  const t4yA1 = (t4.yB - t4.h) + t4.h * 0.12 + 14;
+
+  // Cables desde t4 hasta bushings del transformador (fuera de la rotación)
+  const subCables = [
+    [t4.x - t4.bw*1.9, t4yA1, scx - 30, bshY],
+    [t4.x,             t4yA1, scx,      bshY],
+    [t4.x + t4.bw*1.9, t4yA1, scx + 30, bshY],
+  ].map(([x1,y1,x2,y2], k) => {
+    const cmx = (x1+x2)/2;
+    const cmy = (y1+y2)/2 + Math.abs(x2-x1)*0.03;
+    return (
+      <path key={k} d={`M${x1},${y1} Q${cmx},${cmy} ${x2},${y2}`}
+            stroke={C} strokeWidth={1.08} strokeOpacity={0.60} fill="none"/>
+    );
+  });
+
   const Substation = () => (
-    <g opacity={0.82}>
-      {/* Cuerpo principal */}
-      <rect x={sx} y={sy} width={98} height={70} rx={3} fill="none" stroke={C} strokeWidth={1.1} strokeOpacity={0.75}/>
-      {/* Ventana play */}
-      <circle cx={sx+49} cy={sy+35} r={16} fill="none" stroke={C} strokeWidth={1} strokeOpacity={0.6}/>
-      <polygon points={`${sx+44},${sy+28} ${sx+44},${sy+42} ${sx+58},${sy+35}`} fill={C} opacity={0.45}/>
-      {/* Rejillas laterales */}
+    <g transform={`rotate(-12, ${scx}, ${scy})`} opacity={0.94}>
+      {/* Aura de energía */}
+      <ellipse cx={scx} cy={scy+18} rx={stw*0.72} ry={sth*0.42}
+               fill={C} opacity={0.055} filter="url(#glow)"/>
+
+      {/* Plataforma / base */}
+      <rect x={sbx-10} y={sby+sth+3} width={stw+20} height={10} rx={2}
+            fill="#0E0E1E" stroke={C} strokeWidth={0.7} strokeOpacity={0.42}/>
       {[0,1,2,3].map(k => (
-        <rect key={k} x={sx+6+k*10} y={sy+8} width={6} height={18} rx={1} fill="none" stroke={C} strokeWidth={0.7} strokeOpacity={0.45}/>
+        <rect key={k} x={sbx-2+k*((stw+4)/3)} y={sby+sth+13} width={5} height={7} rx={1}
+              fill="none" stroke={C} strokeWidth={0.45} strokeOpacity={0.32}/>
       ))}
-      {/* Transformadores encima */}
-      {[0,1,2].map(k => (
+
+      {/* Cuerpo principal */}
+      <rect x={sbx} y={sby} width={stw} height={sth} rx={3}
+            fill="#08081A" stroke={C} strokeWidth={1.5} strokeOpacity={0.90}/>
+
+      {/* Divisores internos de sección */}
+      <line x1={scx-25} y1={sby+8} x2={scx-25} y2={sby+sth-8}
+            stroke={C} strokeWidth={0.4} strokeOpacity={0.16}/>
+      <line x1={scx+25} y1={sby+8} x2={scx+25} y2={sby+sth-8}
+            stroke={C} strokeWidth={0.4} strokeOpacity={0.16}/>
+
+      {/* Aletas de refrigeración — izquierda */}
+      {[0,1,2,3,4,5,6].map(k => (
         <g key={k}>
-          <rect x={sx+12+k*26} y={sy-28} width={20} height={24} rx={2} fill="none" stroke={C} strokeWidth={0.9} strokeOpacity={0.65}/>
-          <line x1={sx+22+k*26} y1={sy-28} x2={sx+22+k*26} y2={sy} stroke={C} strokeWidth={0.6} strokeOpacity={0.4}/>
+          <rect x={sbx-20} y={sby+8+k*14} width={20} height={10} rx={1.5}
+                fill="none" stroke={C} strokeWidth={0.72} strokeOpacity={0.60}/>
+          <line x1={sbx-16} y1={sby+8+k*14} x2={sbx-16} y2={sby+18+k*14}
+                stroke={C} strokeWidth={0.32} strokeOpacity={0.28}/>
+          <line x1={sbx-10} y1={sby+8+k*14} x2={sbx-10} y2={sby+18+k*14}
+                stroke={C} strokeWidth={0.32} strokeOpacity={0.28}/>
         </g>
       ))}
-      {/* Cable entrada desde última torre */}
-      <line x1={torres[3].x} y1={(torres[3].yB - torres[3].h) + torres[3].h*0.12 + 14}
-            x2={sx} y2={sy-16} stroke={C} strokeWidth={1} strokeOpacity={0.55}/>
-      <line x1={torres[3].x} y1={(torres[3].yB - torres[3].h) + torres[3].h*0.26 + 11}
-            x2={sx} y2={sy+8} stroke={C} strokeWidth={0.9} strokeOpacity={0.45}/>
+
+      {/* Aletas de refrigeración — derecha */}
+      {[0,1,2,3,4,5,6].map(k => (
+        <g key={k}>
+          <rect x={sbx+stw} y={sby+8+k*14} width={20} height={10} rx={1.5}
+                fill="none" stroke={C} strokeWidth={0.72} strokeOpacity={0.60}/>
+          <line x1={sbx+stw+5} y1={sby+8+k*14} x2={sbx+stw+5} y2={sby+18+k*14}
+                stroke={C} strokeWidth={0.32} strokeOpacity={0.28}/>
+          <line x1={sbx+stw+11} y1={sby+8+k*14} x2={sbx+stw+11} y2={sby+18+k*14}
+                stroke={C} strokeWidth={0.32} strokeOpacity={0.28}/>
+        </g>
+      ))}
+
+      {/* Ventana circular de inspección */}
+      <circle cx={scx} cy={scy-8} r={27} fill="none" stroke={C} strokeWidth={1.1} strokeOpacity={0.66}/>
+      <circle cx={scx} cy={scy-8} r={18} fill={C} fillOpacity={0.07} filter="url(#pg)"/>
+      <line x1={scx-14} y1={scy-8} x2={scx+14} y2={scy-8} stroke={C} strokeWidth={0.9} strokeOpacity={0.52}/>
+      <line x1={scx}    y1={scy-22} x2={scx}    y2={scy+6} stroke={C} strokeWidth={0.9} strokeOpacity={0.52}/>
+      <circle cx={scx} cy={scy-8} r={4.5} fill={C} fillOpacity={0.30}/>
+
+      {/* Placa técnica */}
+      <rect x={sbx+8} y={scy+22} width={stw-16} height={16} rx={2}
+            fill="none" stroke={C} strokeWidth={0.6} strokeOpacity={0.42}/>
+      <text x={scx} y={scy+34} fontSize="7.5" fill={C} fillOpacity={0.72}
+            fontFamily="monospace" textAnchor="middle" letterSpacing="0.8">
+        132 kV · 50 MVA
+      </text>
+
+      {/* Bushings de alta tensión — 3 en la cima */}
+      {[-1, 0, 1].map((off) => {
+        const bx = scx + off * 30;
+        return (
+          <g key={off}>
+            <rect x={bx-5} y={sby-44} width={10} height={44} rx={2.5}
+                  fill="none" stroke={C} strokeWidth={0.92} strokeOpacity={0.80}/>
+            {[0,1,2,3,4].map(d => (
+              <ellipse key={d} cx={bx} cy={sby-10-d*7} rx={8} ry={2.2}
+                       fill="none" stroke={C} strokeWidth={0.58} strokeOpacity={0.55}/>
+            ))}
+            <circle cx={bx} cy={sby-46} r={5}   fill={C}  fillOpacity={0.38} filter="url(#pg)"/>
+            <circle cx={bx} cy={sby-46} r={2.2} fill={CL} fillOpacity={0.88}/>
+          </g>
+        );
+      })}
     </g>
   );
 
@@ -1124,7 +1209,7 @@ const HeroTowers = () => {
           <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
         <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
-          <feGaussianBlur stdDeviation="8" result="b"/>
+          <feGaussianBlur stdDeviation="10" result="b"/>
           <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
         <pattern id="dotgrid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -1136,37 +1221,50 @@ const HeroTowers = () => {
           <stop offset="35%"  stopColor="#080810" stopOpacity="0"/>
         </linearGradient>
         <linearGradient id="fadeB" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="70%"  stopColor="#080810" stopOpacity="0"/>
-          <stop offset="100%" stopColor="#080810" stopOpacity="0.9"/>
+          <stop offset="72%"  stopColor="#080810" stopOpacity="0"/>
+          <stop offset="100%" stopColor="#080810" stopOpacity="0.92"/>
         </linearGradient>
         <linearGradient id="fadeT" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#080810" stopOpacity="0.6"/>
-          <stop offset="25%"  stopColor="#080810" stopOpacity="0"/>
+          <stop offset="0%"  stopColor="#080810" stopOpacity="0.55"/>
+          <stop offset="22%" stopColor="#080810" stopOpacity="0"/>
+        </linearGradient>
+        <linearGradient id="horizon" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor={C} stopOpacity="0"/>
+          <stop offset="50%"  stopColor={C} stopOpacity="0.055"/>
+          <stop offset="100%" stopColor={C} stopOpacity="0"/>
         </linearGradient>
       </defs>
 
-      {/* Fondo de puntos técnicos */}
+      {/* Puntos técnicos */}
       <rect width={W} height={H} fill="url(#dotgrid)"/>
 
-      {/* Línea de suelo */}
-      <line x1="0" y1="400" x2={W} y2="400" stroke={C} strokeWidth="0.5" strokeOpacity="0.12"/>
+      {/* Brillo de horizonte atmosférico */}
+      <rect x="0" y="310" width={W} height="110" fill="url(#horizon)"/>
 
-      {/* Cables — debajo de las torres */}
+      {/* Línea de suelo */}
+      <line x1="0" y1="400" x2={W} y2="400" stroke={C} strokeWidth="0.5" strokeOpacity="0.14"/>
+
+      {/* Cables entre torres */}
       {cables}
 
-      {/* Torres */}
+      {/* Cables hacia transformador */}
+      {subCables}
+
+      {/* Torres (fondo → primer plano) */}
       {torres.map((t, i) => <Torre key={i} {...t} idx={i}/>)}
 
-      {/* Subestación */}
+      {/* Transformador */}
       <Substation/>
 
-      {/* Partículas de energía — encima de todo */}
+      {/* Partículas de energía */}
       {partics}
 
       {/* Badge técnico */}
-      <g opacity="0.45">
+      <g opacity="0.48">
         <rect x="14" y="14" width="148" height="20" rx="3" fill="none" stroke={C} strokeWidth="0.7"/>
-        <text x="22" y="27" fontSize="8" fill={C} fontFamily="monospace" letterSpacing="1">132 kV · ALTA TENSION</text>
+        <text x="22" y="27" fontSize="8" fill={C} fontFamily="monospace" letterSpacing="1">
+          132 kV · ALTA TENSION
+        </text>
       </g>
 
       {/* Fades de composición */}
