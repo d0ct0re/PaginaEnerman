@@ -960,23 +960,18 @@ const HeroTowers = () => {
   const C  = '#E0B11E';
   const CL = '#FFD84D';
   const W  = 1000;
-  const H  = 500;
-  const GY = 448;   // ground y
+  const H  = 480;
 
-  // ── Sistema de barras ──────────────────────────────────────────────────────
-  const busY  = 192;                    // barra principal AT
-  const busX1 = 238, busX2 = 730;
-  const secY  = 352;                    // barra secundaria BT
-  const secX1 = 238, secX2 = 618;
-  const colXs = [238, 358, 478, 598, 718]; // postes de soporte
-  const bayXs = [298, 418, 538];           // centros de bahías
-
-  // ── Torres de transmisión (entrada desde la izquierda) ────────────────────
-  const tData = [
-    { x: 68,  yB: GY, h: 248, bw: 19, sw: 0.62, op: 0.46 },
-    { x: 192, yB: GY, h: 285, bw: 26, sw: 0.86, op: 0.72 },
+  // ── Torres con perspectiva de profundidad ─────────────────────────────────
+  // Izquierda = fondo lejano (pequeño, tenue) → Derecha = primer plano (grande, brillante)
+  const torres = [
+    { x: 92,  yB: 406, h: 190, bw: 21, sw: 0.64, op: 0.43 },
+    { x: 294, yB: 403, h: 234, bw: 30, sw: 0.82, op: 0.62 },
+    { x: 526, yB: 400, h: 272, bw: 38, sw: 1.02, op: 0.82 },
+    { x: 758, yB: 397, h: 306, bw: 46, sw: 1.24, op: 1.00 },
   ];
 
+  // ── Torre celosía con escala de profundidad ──────────────────────────────
   const Torre = ({ x, yB, h, bw, sw, op, idx }) => {
     const yT  = yB - h;
     const yA1 = yT + h * 0.12;
@@ -984,287 +979,222 @@ const HeroTowers = () => {
     const yW  = yT + h * 0.42;
     const aw1 = bw * 1.9;
     const aw2 = bw * 1.45;
-    const ld  = `${1.2 + idx * 0.5}s`;
+    const ld  = `${1.4 + idx * 0.35}s`;
+
     const segs = [
-      [yT,yA1,bw*0.05,bw*0.06],[yA1,yA2,bw*0.06,bw*0.12],
-      [yA2,yW,bw*0.12,bw*0.18],[yW,yW+h*0.22,bw*0.18,bw*0.34],
-      [yW+h*0.22,yB,bw*0.34,bw*0.50],
+      [yT,          yA1,         bw*0.05, bw*0.06],
+      [yA1,         yA2,         bw*0.06, bw*0.12],
+      [yA2,         yW,          bw*0.12, bw*0.18],
+      [yW,          yW + h*0.22, bw*0.18, bw*0.34],
+      [yW + h*0.22, yB,          bw*0.34, bw*0.50],
     ];
+
     return (
       <g opacity={op}>
-        <ellipse cx={x} cy={yB} rx={bw*2.1} ry={4} fill={C} opacity={0.18} filter="url(#pg)"/>
-        {segs.map(([y1,y2,hw1,hw2],i) => (
+        {/* Resplandor de base */}
+        <ellipse cx={x} cy={yB+2} rx={bw * 2.1} ry={5} fill={C} opacity={0.20} filter="url(#pg)"/>
+
+        {/* Celosía */}
+        {segs.map(([y1,y2,hw1,hw2], i) => (
           <g key={i}>
-            <line x1={x-hw1} y1={y1} x2={x-hw2} y2={y2} stroke={C} strokeWidth={sw} strokeOpacity={0.85}/>
-            <line x1={x+hw1} y1={y1} x2={x+hw2} y2={y2} stroke={C} strokeWidth={sw} strokeOpacity={0.85}/>
-            <line x1={x-hw1} y1={y1} x2={x+hw2} y2={y2} stroke={C} strokeWidth={sw*0.5} strokeOpacity={0.28}/>
-            <line x1={x+hw1} y1={y1} x2={x-hw2} y2={y2} stroke={C} strokeWidth={sw*0.5} strokeOpacity={0.28}/>
-            <line x1={x-hw2} y1={y2} x2={x+hw2} y2={y2} stroke={C} strokeWidth={sw*0.42} strokeOpacity={0.20}/>
+            <line x1={x-hw1} y1={y1} x2={x-hw2} y2={y2} stroke={C} strokeWidth={sw}     strokeOpacity={0.85}/>
+            <line x1={x+hw1} y1={y1} x2={x+hw2} y2={y2} stroke={C} strokeWidth={sw}     strokeOpacity={0.85}/>
+            <line x1={x-hw1} y1={y1} x2={x+hw2} y2={y2} stroke={C} strokeWidth={sw*0.5} strokeOpacity={0.30}/>
+            <line x1={x+hw1} y1={y1} x2={x-hw2} y2={y2} stroke={C} strokeWidth={sw*0.5} strokeOpacity={0.30}/>
+            <line x1={x-hw2} y1={y2} x2={x+hw2} y2={y2} stroke={C} strokeWidth={sw*0.45} strokeOpacity={0.22}/>
           </g>
         ))}
+
+        {/* Brazo superior */}
         <line x1={x-aw1} y1={yA1} x2={x+aw1} y2={yA1} stroke={C} strokeWidth={sw*1.6} strokeOpacity={0.92}/>
-        <line x1={x-bw*0.05} y1={yT+5} x2={x-aw1} y2={yA1} stroke={C} strokeWidth={sw*0.55} strokeOpacity={0.42}/>
-        <line x1={x+bw*0.05} y1={yT+5} x2={x+aw1} y2={yA1} stroke={C} strokeWidth={sw*0.55} strokeOpacity={0.42}/>
+        <line x1={x-bw*0.05} y1={yT+6} x2={x-aw1} y2={yA1} stroke={C} strokeWidth={sw*0.6} strokeOpacity={0.45}/>
+        <line x1={x+bw*0.05} y1={yT+6} x2={x+aw1} y2={yA1} stroke={C} strokeWidth={sw*0.6} strokeOpacity={0.45}/>
+
+        {/* Brazo inferior */}
         <line x1={x-aw2} y1={yA2} x2={x+aw2} y2={yA2} stroke={C} strokeWidth={sw*1.3} strokeOpacity={0.85}/>
+        <line x1={x-bw*0.10} y1={yA1+8} x2={x-aw2} y2={yA2} stroke={C} strokeWidth={sw*0.5} strokeOpacity={0.38}/>
+        <line x1={x+bw*0.10} y1={yA1+8} x2={x+aw2} y2={yA2} stroke={C} strokeWidth={sw*0.5} strokeOpacity={0.38}/>
+
+        {/* Aisladores brazo superior */}
         {[-1,1].map(s => (
           <g key={s}>
-            <line x1={x+s*aw1} y1={yA1} x2={x+s*aw1} y2={yA1+13} stroke={C} strokeWidth={sw*1.1} strokeOpacity={0.88}/>
-            <circle cx={x+s*aw1} cy={yA1+13} r={2.2*sw} fill={CL} filter="url(#pg)"/>
-            <line x1={x+s*aw2} y1={yA2} x2={x+s*aw2} y2={yA2+10} stroke={C} strokeWidth={sw} strokeOpacity={0.82}/>
-            <circle cx={x+s*aw2} cy={yA2+10} r={1.8*sw} fill={CL} filter="url(#pg)"/>
+            <line x1={x+s*aw1} y1={yA1} x2={x+s*aw1} y2={yA1+14} stroke={C} strokeWidth={sw*1.1} strokeOpacity={0.88}/>
+            <circle cx={x+s*aw1} cy={yA1+14} r={2.4*sw} fill={CL} filter="url(#pg)"/>
           </g>
         ))}
+
+        {/* Aisladores brazo inferior */}
+        {[-1,1].map(s => (
+          <g key={s}>
+            <line x1={x+s*aw2} y1={yA2} x2={x+s*aw2} y2={yA2+11} stroke={C} strokeWidth={sw} strokeOpacity={0.82}/>
+            <circle cx={x+s*aw2} cy={yA2+11} r={1.9*sw} fill={CL} filter="url(#pg)"/>
+          </g>
+        ))}
+
+        {/* Mástil cima */}
         <line x1={x} y1={yT} x2={x} y2={yA1} stroke={C} strokeWidth={sw*1.2} strokeOpacity={0.88}/>
-        <circle cx={x} cy={yT-4} r={2.8*sw} fill="#FF1A1A">
+
+        {/* Luz de advertencia aérea */}
+        <circle cx={x} cy={yT-5} r={3*sw} fill="#FF1A1A">
           <animate attributeName="opacity" values="1;0.08;1" dur={ld} repeatCount="indefinite"/>
         </circle>
-        <circle cx={x} cy={yT-4} r={7*sw} fill="#FF2020" opacity="0.15">
+        <circle cx={x} cy={yT-5} r={8*sw} fill="#FF2020" opacity="0.15">
           <animate attributeName="opacity" values="0.15;0;0.15" dur={ld} repeatCount="indefinite"/>
         </circle>
       </g>
     );
   };
 
-  // ── Poste soporte de barra (estructura A) ─────────────────────────────────
-  const BusColumn = ({ x }) => {
-    const spread = 18;
-    const midY   = busY + (GY - busY) * 0.42;
-    return (
-      <g>
-        <line x1={x} y1={busY+20} x2={x-spread} y2={GY} stroke={C} strokeWidth={0.82} strokeOpacity={0.30}/>
-        <line x1={x} y1={busY+20} x2={x+spread} y2={GY} stroke={C} strokeWidth={0.82} strokeOpacity={0.30}/>
-        <line x1={x-spread*0.5} y1={midY} x2={x+spread*0.5} y2={midY}
-              stroke={C} strokeWidth={0.52} strokeOpacity={0.18}/>
-        {[0,1,2,3].map(d => (
-          <ellipse key={d} cx={x} cy={busY+5+d*5} rx={5} ry={1.5}
-                   fill="none" stroke={C} strokeWidth={0.55} strokeOpacity={0.52}/>
-        ))}
-      </g>
-    );
-  };
+  // ── Cables y partículas entre torres ────────────────────────────────────
+  const cables  = [];
+  const partics = [];
 
-  // ── Bahía: seccionador + disyuntor SF6 ────────────────────────────────────
-  const Bahia = ({ x }) => {
-    const discY2 = busY + 26;
-    const cbTop  = discY2 + 14;
-    const cbBot  = cbTop + 55;
-    const legY   = cbBot + 22;
-    return (
-      <g>
-        {/* Seccionador (cuchilla cerrada) */}
-        {[-11, 11].map(dx => (
-          <g key={dx}>
-            <line x1={x+dx} y1={busY} x2={x+dx} y2={discY2}
-                  stroke={C} strokeWidth={0.74} strokeOpacity={0.68}/>
-            {[0,1].map(d => (
-              <ellipse key={d} cx={x+dx} cy={busY+8+d*5} rx={4.5} ry={1.4}
-                       fill="none" stroke={C} strokeWidth={0.5} strokeOpacity={0.52}/>
-            ))}
-          </g>
-        ))}
-        <line x1={x-11} y1={discY2} x2={x+11} y2={discY2}
-              stroke={C} strokeWidth={1.3} strokeOpacity={0.84}/>
-        {/* Bajante bus→CB */}
-        <line x1={x} y1={discY2} x2={x} y2={cbTop}
-              stroke={C} strokeWidth={0.9} strokeOpacity={0.60}/>
-        {/* Cuerpo SF6 */}
-        <rect x={x-7} y={cbTop} width={14} height={55} rx={3.5}
-              fill="#07071C" stroke={C} strokeWidth={1.0} strokeOpacity={0.84}/>
-        {[0,1,2].map(r => (
-          <line key={r} x1={x-7} y1={cbTop+11+r*15} x2={x+7} y2={cbTop+11+r*15}
-                stroke={C} strokeWidth={0.38} strokeOpacity={0.26}/>
-        ))}
-        <circle cx={x} cy={cbTop} r={4.5} fill="#07071C" stroke={C} strokeWidth={0.82} strokeOpacity={0.86}/>
-        <circle cx={x} cy={cbTop} r={2}   fill={CL} opacity={0.55}/>
-        <circle cx={x} cy={cbBot} r={4.5} fill="#07071C" stroke={C} strokeWidth={0.82} strokeOpacity={0.86}/>
-        {/* Trípode */}
-        {[-18, 0, 18].map(dx => (
-          <line key={dx} x1={x} y1={cbBot+6} x2={x+dx} y2={legY}
-                stroke={C} strokeWidth={0.78} strokeOpacity={0.50}/>
-        ))}
-        <line x1={x-22} y1={legY} x2={x+22} y2={legY}
-              stroke={C} strokeWidth={1.0} strokeOpacity={0.48}/>
-        {/* Bajante CB→barra secundaria */}
-        <line x1={x} y1={cbBot} x2={x} y2={secY}
-              stroke={C} strokeWidth={0.9} strokeOpacity={0.50}/>
-      </g>
-    );
-  };
+  for (let i = 0; i < torres.length - 1; i++) {
+    const t1 = torres[i], t2 = torres[i+1];
+    const yA1_1 = (t1.yB - t1.h) + t1.h * 0.12 + 14;
+    const yA1_2 = (t2.yB - t2.h) + t2.h * 0.12 + 14;
+    const yA2_1 = (t1.yB - t1.h) + t1.h * 0.26 + 11;
+    const yA2_2 = (t2.yB - t2.h) + t2.h * 0.26 + 11;
+    const mx    = (t1.x + t2.x) / 2;
+    const span  = t2.x - t1.x;
+    const sag   = span * 0.055;
+    const opMid = (t1.op + t2.op) / 2;
+    const swMid = (t1.sw + t2.sw) / 2;
 
-  // ── Cables de llegada de T2 hacia barra principal ─────────────────────────
-  const t2    = tData[1];
-  const t2yA1 = (t2.yB - t2.h) + t2.h * 0.12 + 13;
-  const t2yA2 = (t2.yB - t2.h) + t2.h * 0.26 + 10;
+    const fases = [
+      { x1: t1.x - t1.bw*1.9,  y1: yA1_1, x2: t2.x - t2.bw*1.9,  y2: yA1_2, sag,         op: 0.82 },
+      { x1: t1.x + t1.bw*1.9,  y1: yA1_1, x2: t2.x + t2.bw*1.9,  y2: yA1_2, sag,         op: 0.82 },
+      { x1: t1.x - t1.bw*1.45, y1: yA2_1, x2: t2.x - t2.bw*1.45, y2: yA2_2, sag: sag*0.8, op: 0.62 },
+      { x1: t1.x + t1.bw*1.45, y1: yA2_1, x2: t2.x + t2.bw*1.45, y2: yA2_2, sag: sag*0.8, op: 0.62 },
+    ];
 
-  const incomingCables = [
-    [t2.x - t2.bw*1.9,  t2yA1, busX1,    busY  ],
-    [t2.x + t2.bw*1.9,  t2yA1, busX1+26, busY  ],
-    [t2.x - t2.bw*1.45, t2yA2, busX1,    busY+8],
+    fases.forEach((f, fi) => {
+      const my = (f.y1 + f.y2) / 2 + f.sag;
+      const d  = `M${f.x1},${f.y1} Q${mx},${my} ${f.x2},${f.y2}`;
+      cables.push(
+        <path key={`c-${i}-${fi}`} d={d}
+              stroke={C} strokeWidth={swMid * 1.1} strokeOpacity={f.op * opMid} fill="none"/>
+      );
+      [0, 0.5].forEach((off) => {
+        const dur = `${5.5 + fi*0.4 + i*0.3}s`;
+        partics.push(
+          <circle key={`p-${i}-${fi}-${off}`} r={fi < 2 ? 2.8*swMid : 2.2*swMid} fill={CL} filter="url(#pg)">
+            <animateMotion dur={dur} repeatCount="indefinite"
+              begin={`${-(off * parseFloat(dur) + i*1.1 + fi*0.7)}s`} path={d}/>
+          </circle>
+        );
+      });
+    });
+  }
+
+  // ── Transformador de potencia (grande, rotado) ───────────────────────────
+  const t4   = torres[3];
+  const sbx  = 850;   // left edge
+  const sby  = 224;   // top edge
+  const stw  = 128;   // width
+  const sth  = 120;   // height
+  const scx  = sbx + stw / 2;   // 914
+  const scy  = sby + sth / 2;   // 284
+  const bshY = sby - 44;        // top of bushings
+
+  // Puntos de conexión de brazos de t4
+  const t4yA1 = (t4.yB - t4.h) + t4.h * 0.12 + 14;
+
+  // Cables desde t4 hasta bushings del transformador (fuera de la rotación)
+  const subCables = [
+    [t4.x - t4.bw*1.9, t4yA1, scx - 30, bshY],
+    [t4.x,             t4yA1, scx,      bshY],
+    [t4.x + t4.bw*1.9, t4yA1, scx + 30, bshY],
   ].map(([x1,y1,x2,y2], k) => {
-    const mx  = (x1+x2)*0.5;
-    const sag = Math.abs(x2-x1)*0.035;
+    const cmx = (x1+x2)/2;
+    const cmy = (y1+y2)/2 + Math.abs(x2-x1)*0.03;
     return (
-      <path key={k} d={`M${x1},${y1} Q${mx},${(y1+y2)*0.5+sag} ${x2},${y2}`}
-            stroke={C} strokeWidth={1.0} strokeOpacity={0.58} fill="none"/>
+      <path key={k} d={`M${x1},${y1} Q${cmx},${cmy} ${x2},${y2}`}
+            stroke={C} strokeWidth={1.08} strokeOpacity={0.60} fill="none"/>
     );
   });
 
-  // ── Transformador de potencia ─────────────────────────────────────────────
-  const tfx  = 748, tfy  = 210, tfw = 205, tfh = 172;
-  const tfcx = tfx + tfw / 2;   // 850.5
-  const tfcy = tfy + tfh / 2;   // 296
-  const bshT = tfy - 46;        // cima de bushings AT = 164
+  const Substation = () => (
+    <g transform={`rotate(-12, ${scx}, ${scy})`} opacity={0.94}>
+      {/* Aura de energía */}
+      <ellipse cx={scx} cy={scy+18} rx={stw*0.72} ry={sth*0.42}
+               fill={C} opacity={0.055} filter="url(#glow)"/>
 
-  // Cables barra principal → bushings AT del transformador
-  const tfLeads = [-32, 0, 32].map((off, k) => {
-    const x2 = tfcx + off;
-    const mx = busX2 + 38 + k*14;
-    return (
-      <path key={k} d={`M${busX2},${busY} Q${mx},${(busY+bshT)/2} ${x2},${bshT}`}
-            stroke={C} strokeWidth={1.05} strokeOpacity={0.60} fill="none"/>
-    );
-  });
-
-  // ── Partículas en barras ───────────────────────────────────────────────────
-  const busD = `M${busX1},${busY} L${busX2},${busY}`;
-  const secD = `M${secX1},${secY} L${secX2},${secY}`;
-  const busPartics = [0, 0.34, 0.67].map((off, k) => (
-    <circle key={k} r={2.5} fill={CL} filter="url(#pg)">
-      <animateMotion dur="4.2s" repeatCount="indefinite" begin={`${-off*4.2}s`} path={busD}/>
-    </circle>
-  ));
-  const secPartics = [0, 0.5].map((off, k) => (
-    <circle key={k} r={2.0} fill={CL} filter="url(#pg)">
-      <animateMotion dur="3.5s" repeatCount="indefinite" begin={`${-off*3.5}s`} path={secD}/>
-    </circle>
-  ));
-
-  // ── Transformador (componente) ────────────────────────────────────────────
-  const Transformer = () => (
-    <g transform={`rotate(-8, ${tfcx}, ${tfcy})`} opacity={0.96}>
-      {/* Aura */}
-      <ellipse cx={tfcx} cy={tfcy+22} rx={tfw*0.66} ry={tfh*0.40}
-               fill={C} opacity={0.048} filter="url(#glow)"/>
-      {/* Plataforma */}
-      <rect x={tfx-10} y={tfy+tfh+4} width={tfw+20} height={11} rx={2}
+      {/* Plataforma / base */}
+      <rect x={sbx-10} y={sby+sth+3} width={stw+20} height={10} rx={2}
             fill="#0E0E1E" stroke={C} strokeWidth={0.7} strokeOpacity={0.42}/>
       {[0,1,2,3].map(k => (
-        <rect key={k} x={tfx-2+k*((tfw+4)/3)} y={tfy+tfh+15} width={5} height={7} rx={1}
-              fill="none" stroke={C} strokeWidth={0.44} strokeOpacity={0.30}/>
+        <rect key={k} x={sbx-2+k*((stw+4)/3)} y={sby+sth+13} width={5} height={7} rx={1}
+              fill="none" stroke={C} strokeWidth={0.45} strokeOpacity={0.32}/>
       ))}
-      {/* Cuerpo */}
-      <rect x={tfx} y={tfy} width={tfw} height={tfh} rx={3}
-            fill="#07071A" stroke={C} strokeWidth={1.6} strokeOpacity={0.92}/>
-      {/* Divisiones internas */}
-      <line x1={tfcx-32} y1={tfy+12} x2={tfcx-32} y2={tfy+tfh-12}
-            stroke={C} strokeWidth={0.4} strokeOpacity={0.14}/>
-      <line x1={tfcx+32} y1={tfy+12} x2={tfcx+32} y2={tfy+tfh-12}
-            stroke={C} strokeWidth={0.4} strokeOpacity={0.14}/>
-      {/* Aletas izquierda */}
-      {[0,1,2,3,4,5,6,7].map(k => (
+
+      {/* Cuerpo principal */}
+      <rect x={sbx} y={sby} width={stw} height={sth} rx={3}
+            fill="#08081A" stroke={C} strokeWidth={1.5} strokeOpacity={0.90}/>
+
+      {/* Divisores internos de sección */}
+      <line x1={scx-25} y1={sby+8} x2={scx-25} y2={sby+sth-8}
+            stroke={C} strokeWidth={0.4} strokeOpacity={0.16}/>
+      <line x1={scx+25} y1={sby+8} x2={scx+25} y2={sby+sth-8}
+            stroke={C} strokeWidth={0.4} strokeOpacity={0.16}/>
+
+      {/* Aletas de refrigeración — izquierda */}
+      {[0,1,2,3,4,5,6].map(k => (
         <g key={k}>
-          <rect x={tfx-24} y={tfy+6+k*19} width={24} height={13} rx={1.5}
-                fill="none" stroke={C} strokeWidth={0.72} strokeOpacity={0.62}/>
-          <line x1={tfx-19} y1={tfy+6+k*19} x2={tfx-19} y2={tfy+19+k*19}
-                stroke={C} strokeWidth={0.3} strokeOpacity={0.26}/>
-          <line x1={tfx-12} y1={tfy+6+k*19} x2={tfx-12} y2={tfy+19+k*19}
-                stroke={C} strokeWidth={0.3} strokeOpacity={0.26}/>
+          <rect x={sbx-20} y={sby+8+k*14} width={20} height={10} rx={1.5}
+                fill="none" stroke={C} strokeWidth={0.72} strokeOpacity={0.60}/>
+          <line x1={sbx-16} y1={sby+8+k*14} x2={sbx-16} y2={sby+18+k*14}
+                stroke={C} strokeWidth={0.32} strokeOpacity={0.28}/>
+          <line x1={sbx-10} y1={sby+8+k*14} x2={sbx-10} y2={sby+18+k*14}
+                stroke={C} strokeWidth={0.32} strokeOpacity={0.28}/>
         </g>
       ))}
-      {/* Aletas derecha */}
-      {[0,1,2,3,4,5,6,7].map(k => (
+
+      {/* Aletas de refrigeración — derecha */}
+      {[0,1,2,3,4,5,6].map(k => (
         <g key={k}>
-          <rect x={tfx+tfw} y={tfy+6+k*19} width={24} height={13} rx={1.5}
-                fill="none" stroke={C} strokeWidth={0.72} strokeOpacity={0.62}/>
-          <line x1={tfx+tfw+6}  y1={tfy+6+k*19} x2={tfx+tfw+6}  y2={tfy+19+k*19}
-                stroke={C} strokeWidth={0.3} strokeOpacity={0.26}/>
-          <line x1={tfx+tfw+13} y1={tfy+6+k*19} x2={tfx+tfw+13} y2={tfy+19+k*19}
-                stroke={C} strokeWidth={0.3} strokeOpacity={0.26}/>
+          <rect x={sbx+stw} y={sby+8+k*14} width={20} height={10} rx={1.5}
+                fill="none" stroke={C} strokeWidth={0.72} strokeOpacity={0.60}/>
+          <line x1={sbx+stw+5} y1={sby+8+k*14} x2={sbx+stw+5} y2={sby+18+k*14}
+                stroke={C} strokeWidth={0.32} strokeOpacity={0.28}/>
+          <line x1={sbx+stw+11} y1={sby+8+k*14} x2={sbx+stw+11} y2={sby+18+k*14}
+                stroke={C} strokeWidth={0.32} strokeOpacity={0.28}/>
         </g>
       ))}
-      {/* Ventana de inspección */}
-      <circle cx={tfcx} cy={tfcy-8} r={28} fill="none" stroke={C} strokeWidth={1.1} strokeOpacity={0.65}/>
-      <circle cx={tfcx} cy={tfcy-8} r={18} fill={C} fillOpacity={0.07} filter="url(#pg)"/>
-      <line x1={tfcx-14} y1={tfcy-8} x2={tfcx+14} y2={tfcy-8} stroke={C} strokeWidth={0.9} strokeOpacity={0.52}/>
-      <line x1={tfcx}    y1={tfcy-22} x2={tfcx}    y2={tfcy+6} stroke={C} strokeWidth={0.9} strokeOpacity={0.52}/>
-      <circle cx={tfcx} cy={tfcy-8} r={4.8} fill={C} fillOpacity={0.28}/>
-      {/* Conservador de aceite */}
-      <rect x={tfcx-32} y={tfy-14} width={64} height={14} rx={3.5}
-            fill="#09091E" stroke={C} strokeWidth={0.9} strokeOpacity={0.70}/>
-      <ellipse cx={tfcx+34} cy={tfy-7} rx={8} ry={7}
-               fill="#09091E" stroke={C} strokeWidth={0.8} strokeOpacity={0.65}/>
+
+      {/* Ventana circular de inspección */}
+      <circle cx={scx} cy={scy-8} r={27} fill="none" stroke={C} strokeWidth={1.1} strokeOpacity={0.66}/>
+      <circle cx={scx} cy={scy-8} r={18} fill={C} fillOpacity={0.07} filter="url(#pg)"/>
+      <line x1={scx-14} y1={scy-8} x2={scx+14} y2={scy-8} stroke={C} strokeWidth={0.9} strokeOpacity={0.52}/>
+      <line x1={scx}    y1={scy-22} x2={scx}    y2={scy+6} stroke={C} strokeWidth={0.9} strokeOpacity={0.52}/>
+      <circle cx={scx} cy={scy-8} r={4.5} fill={C} fillOpacity={0.30}/>
+
       {/* Placa técnica */}
-      <rect x={tfx+8} y={tfcy+22} width={tfw-16} height={17} rx={2}
+      <rect x={sbx+8} y={scy+22} width={stw-16} height={16} rx={2}
             fill="none" stroke={C} strokeWidth={0.6} strokeOpacity={0.42}/>
-      <text x={tfcx} y={tfcy+35} fontSize="8" fill={C} fillOpacity={0.72}
+      <text x={scx} y={scy+34} fontSize="7.5" fill={C} fillOpacity={0.72}
             fontFamily="monospace" textAnchor="middle" letterSpacing="0.8">
         132 kV · 50 MVA
       </text>
-      {/* Bushings AT — 3 en la cima */}
-      {[-1, 0, 1].map(off => {
-        const bx = tfcx + off * 32;
+
+      {/* Bushings de alta tensión — 3 en la cima */}
+      {[-1, 0, 1].map((off) => {
+        const bx = scx + off * 30;
         return (
           <g key={off}>
-            <rect x={bx-5.5} y={tfy-46} width={11} height={46} rx={3}
-                  fill="none" stroke={C} strokeWidth={0.95} strokeOpacity={0.80}/>
+            <rect x={bx-5} y={sby-44} width={10} height={44} rx={2.5}
+                  fill="none" stroke={C} strokeWidth={0.92} strokeOpacity={0.80}/>
             {[0,1,2,3,4].map(d => (
-              <ellipse key={d} cx={bx} cy={tfy-10-d*7} rx={8} ry={2.1}
+              <ellipse key={d} cx={bx} cy={sby-10-d*7} rx={8} ry={2.2}
                        fill="none" stroke={C} strokeWidth={0.58} strokeOpacity={0.55}/>
             ))}
-            <circle cx={bx} cy={tfy-48} r={5.5} fill={C} fillOpacity={0.38} filter="url(#pg)"/>
-            <circle cx={bx} cy={tfy-48} r={2.5} fill={CL} fillOpacity={0.88}/>
-          </g>
-        );
-      })}
-      {/* Bushings BT — lado derecho */}
-      {[-1, 0, 1].map(off => {
-        const by = tfcy + off * 28;
-        return (
-          <g key={off}>
-            <rect x={tfx+tfw} y={by-5} width={30} height={10} rx={3}
-                  fill="none" stroke={C} strokeWidth={0.85} strokeOpacity={0.72}/>
-            {[0,1,2].map(d => (
-              <ellipse key={d} cx={tfx+tfw+7+d*8} cy={by} rx={2.2} ry={5}
-                       fill="none" stroke={C} strokeWidth={0.48} strokeOpacity={0.46}/>
-            ))}
-            <circle cx={tfx+tfw+32} cy={by} r={4} fill={C} fillOpacity={0.30} filter="url(#pg)"/>
+            <circle cx={bx} cy={sby-46} r={5}   fill={C}  fillOpacity={0.38} filter="url(#pg)"/>
+            <circle cx={bx} cy={sby-46} r={2.2} fill={CL} fillOpacity={0.88}/>
           </g>
         );
       })}
     </g>
   );
-
-  // ── Edificio de control ───────────────────────────────────────────────────
-  const ControlBuilding = () => (
-    <g opacity={0.75}>
-      <rect x={756} y={GY-48} width={92} height={48} rx={2}
-            fill="#09091C" stroke={C} strokeWidth={0.9} strokeOpacity={0.55}/>
-      {[0,1,2].map(k => (
-        <rect key={k} x={763+k*27} y={GY-40} width={16} height={12} rx={1}
-              fill="none" stroke={C} strokeWidth={0.55} strokeOpacity={0.42}/>
-      ))}
-      <rect x={817} y={GY-28} width={14} height={28} rx={1}
-            fill="none" stroke={C} strokeWidth={0.58} strokeOpacity={0.42}/>
-      <line x1={802} y1={GY-48} x2={802} y2={GY-62}
-            stroke={C} strokeWidth={0.7} strokeOpacity={0.40}/>
-      <circle cx={802} cy={GY-64} r={2.5} fill={C} fillOpacity={0.45}/>
-    </g>
-  );
-
-  // ── Mástiles de alumbrado ─────────────────────────────────────────────────
-  const lightMasts = [345, 518, 692].map(x => (
-    <g key={x} opacity={0.52}>
-      <line x1={x} y1={GY} x2={x} y2={GY-88}
-            stroke={C} strokeWidth={0.75} strokeOpacity={0.42}/>
-      <line x1={x} y1={GY-88} x2={x+17} y2={GY-76}
-            stroke={C} strokeWidth={0.65} strokeOpacity={0.38}/>
-      <circle cx={x+19} cy={GY-74} r={4.2} fill={C} fillOpacity={0.35} filter="url(#pg)"/>
-      <circle cx={x+19} cy={GY-74} r={2} fill={CL} fillOpacity={0.80}/>
-    </g>
-  ));
-
-  // ── dummy para torres array (compatibilidad JSX map) ─────────────────────
-  const torres = tData;
 
   return (
     <svg
@@ -1287,11 +1217,11 @@ const HeroTowers = () => {
         </pattern>
         <linearGradient id="fadeL" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%"   stopColor="#080810" stopOpacity="0.98"/>
-          <stop offset="20%"  stopColor="#080810" stopOpacity="0.50"/>
-          <stop offset="38%"  stopColor="#080810" stopOpacity="0"/>
+          <stop offset="18%"  stopColor="#080810" stopOpacity="0.5"/>
+          <stop offset="35%"  stopColor="#080810" stopOpacity="0"/>
         </linearGradient>
         <linearGradient id="fadeB" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="74%"  stopColor="#080810" stopOpacity="0"/>
+          <stop offset="72%"  stopColor="#080810" stopOpacity="0"/>
           <stop offset="100%" stopColor="#080810" stopOpacity="0.92"/>
         </linearGradient>
         <linearGradient id="fadeT" x1="0" y1="0" x2="0" y2="1">
@@ -1300,59 +1230,34 @@ const HeroTowers = () => {
         </linearGradient>
         <linearGradient id="horizon" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%"   stopColor={C} stopOpacity="0"/>
-          <stop offset="50%"  stopColor={C} stopOpacity="0.052"/>
+          <stop offset="50%"  stopColor={C} stopOpacity="0.055"/>
           <stop offset="100%" stopColor={C} stopOpacity="0"/>
         </linearGradient>
       </defs>
 
-      {/* Fondo de puntos técnicos */}
+      {/* Puntos técnicos */}
       <rect width={W} height={H} fill="url(#dotgrid)"/>
 
-      {/* Brillo de horizonte */}
-      <rect x="0" y="335" width={W} height="130" fill="url(#horizon)"/>
+      {/* Brillo de horizonte atmosférico */}
+      <rect x="0" y="310" width={W} height="110" fill="url(#horizon)"/>
 
       {/* Línea de suelo */}
-      <line x1="0" y1={GY} x2={W} y2={GY} stroke={C} strokeWidth="0.5" strokeOpacity="0.14"/>
+      <line x1="0" y1="400" x2={W} y2="400" stroke={C} strokeWidth="0.5" strokeOpacity="0.14"/>
 
-      {/* Torres de transmisión de entrada */}
+      {/* Cables entre torres */}
+      {cables}
+
+      {/* Cables hacia transformador */}
+      {subCables}
+
+      {/* Torres (fondo → primer plano) */}
       {torres.map((t, i) => <Torre key={i} {...t} idx={i}/>)}
 
-      {/* Cables de llegada desde T2 → barra AT */}
-      {incomingCables}
+      {/* Transformador */}
+      <Substation/>
 
-      {/* Estructuras soporte de barra (A-frame) */}
-      {colXs.map(x => <BusColumn key={x} x={x}/>)}
-
-      {/* Barra principal AT */}
-      <line x1={busX1} y1={busY} x2={busX2} y2={busY}
-            stroke={C} strokeWidth={3.4} strokeOpacity={0.93}/>
-      <line x1={busX1} y1={busY} x2={busX2} y2={busY}
-            stroke={CL} strokeWidth={1.0} strokeOpacity={0.20} filter="url(#pg)"/>
-      {busPartics}
-
-      {/* Bahías: seccionador + disyuntor SF6 + bajante a barra BT */}
-      {bayXs.map(x => <Bahia key={x} x={x}/>)}
-
-      {/* Barra secundaria BT */}
-      <line x1={secX1} y1={secY} x2={secX2} y2={secY}
-            stroke={C} strokeWidth={2.0} strokeOpacity={0.78}/>
-      {secPartics}
-
-      {/* Cable barra BT → entrada BT del transformador */}
-      <path d={`M${secX2},${secY} Q${secX2+62},${(secY+tfcy)/2} ${tfx},${tfcy}`}
-            stroke={C} strokeWidth={1.1} strokeOpacity={0.52} fill="none"/>
-
-      {/* Cables barra AT → bushings AT del transformador */}
-      {tfLeads}
-
-      {/* Transformador de potencia */}
-      <Transformer/>
-
-      {/* Edificio de control */}
-      <ControlBuilding/>
-
-      {/* Mástiles de alumbrado */}
-      {lightMasts}
+      {/* Partículas de energía */}
+      {partics}
 
       {/* Badge técnico */}
       <g opacity="0.48">
