@@ -94,7 +94,7 @@ function MapInit({ markerRef }) {
 // ─────────────────────────────────────────────────────────────────────────────
 const BENEFICIOS = [
   {
-    titulo: "Más de 30,000 productos",
+    titulo: "Más de 500 productos",
     desc: "Catálogo completo de material eléctrico para todo tipo de proyecto.",
     gradA: "#C62828", gradB: "#7f0000", delay: 0,
     icono: (
